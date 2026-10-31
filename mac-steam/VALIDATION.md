@@ -44,6 +44,8 @@ A local Wine source patch now verifies a timestamped request, obtains a fresh se
 
 The rebuilt `winex11.so` uses Wine revision `7b3ceaf8644bb5d57140903e12897efac69be16a`; SHA-256 is `27539e89604760258a62e003c37de18e2503ee5ec56d5d96127a50cfba3d3276`. In the real AoE2 process, an intentionally stale offer `40839640` was rejected; the patched driver retried at `40839680` and received FocusIn. Simulated F10 opened the in-game menu in a new skirmish and after Alt-Tab. KWin's rule file is empty. Verbose Wine event logging used for diagnosis was removed before these game input checks; the FEX binary hash and native Vulkan setting remain unchanged. No new game FPS result is claimed.
 
+The updated full installer then completed on the M3 using the public Wine binary/source assets, with log `/var/lib/mac-steam-ultimate-focus-install.log`. Both public curl bootstraps passed normal-user `--check` with their pinned source payload. Steam was restarted into a fresh VM. One launch acquired focus and exited at 14:37:42 without a crash dump or OOM event; whether the owner closed it was not confirmed. The following launch reached the menu and a skirmish, remained running through 14:48, and passed F10 again. Its actual environment has `WINEDEBUG=-all`, its mappings contain the patched module, and both host/guest active-Proton guards were checked. This does not establish extended game stability or a new FPS result.
+
 The AoE-only Vulkan bridge is enabled using FEX's Steam application configuration and Arch library paths. Valve supplies the bridge binaries with its FEX tool after sign-in/game installation.
 
 ## M1 installation — 2026-10-31
