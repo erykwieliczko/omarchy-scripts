@@ -8,16 +8,16 @@ main() {
         --help|-h)
             printf '%s\n' 'Install Mac Steam Ultimate WIP' \
                 'Usage: bash install-mac-steam-ultimate-wip.sh [--check] [--user DESKTOP_ACCOUNT]' \
-                'Qualified for Omarchy/Arch ARM on Apple M3 Pro (T6030).' \
+                'For Omarchy/Arch ARM on Apple M1 (T8103) or M3 Pro (T6030).' \
                 'Run from your normal desktop account; installation invokes sudo.'
             return 0 ;;
     esac
     if [[ $(uname -m) != aarch64 || ! -f /etc/arch-release ]]; then
-        echo 'Install Mac Steam Ultimate WIP requires Omarchy/Arch Linux ARM on an M3 Pro.' >&2
+        echo 'Install Mac Steam Ultimate WIP requires Omarchy/Arch Linux ARM on Apple Silicon.' >&2
         return 1
     fi
-    revision=1d64436d31a00246d79e67b4e7b92374aa6625ca
-    archive_sha256=8a3fe1fed5e365f6d555ed0120c2f5b0cdb6a48765dc2099e181388e58500a31
+    revision=39be73d7e24d80c98abc5653b9ea5080ac5f8b46
+    archive_sha256=18bc8d2f510e9631f10843b8e10b076d813f6c438b8a33098e9b074fbb80577c
     bootstrap_dir=$(mktemp -d)
     trap 'rm -rf -- "$bootstrap_dir"' EXIT
     echo 'Downloading Install Mac Steam Ultimate WIP (pinned installer)...'
