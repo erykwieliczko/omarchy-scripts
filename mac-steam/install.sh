@@ -96,6 +96,8 @@ rm -rf "$stage/x86-stage"
 cp -a "$project/runtime/." "$stage/runtime/"
 chmod 755 "$stage/runtime/"*
 cp "$project/artifacts.sha256" "$stage/"
+# A normal-user bootstrap owns its checkout; installed system files belong to root.
+chown -R root:root "$stage"
 for library in libvulkan_asahi.so libgallium-26.3.0-devel.so libEGL_mesa.so.0 libGLX_mesa.so.0 libgbm.so.1 dri/libdril_dri.so gbm/dri_gbm.so; do
     [[ -f /usr/lib/$library ]] || die "System Mesa layout has changed: /usr/lib/$library"
 done
