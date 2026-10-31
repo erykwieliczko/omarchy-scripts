@@ -8,6 +8,14 @@ for name in libvulkan_asahi.so libgallium-26.3.0-devel.so libEGL_mesa.so.0 libGL
     target=$(readlink -e "/usr/lib/$name")
     mount --bind "$source" "$target"
 done
+# Steam's first client bootstrap can recreate htmlcache and discard KDE's
+# profile override. Keep its busy native messaging host idle inside this VM
+# as well; the host desktop's ordinary browser integration stays intact.
+stub=/usr/local/lib/omarchy-kde/steam-native-messaging-stub
+native_host=/usr/bin/plasma-browser-integration-host
+if [[ -x $stub && -f $native_host ]]; then
+    mount --bind "$stub" "$(readlink -e "$native_host")"
+fi
 # muvm registers binfmt before applying its per-command environment. Re-register
 # in the guest so native Steam's x86 helpers use the pinned FEX too.
 for name in FEX-x86 FEX-x86_64; do

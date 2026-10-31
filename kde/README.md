@@ -22,7 +22,7 @@ At login, **Omarchy (KDE Plasma)** is preselected. The native **Plasma (Wayland)
 - Lets KWin's Fcitx Wayland launcher pass the native input-method socket to Omarchy's supervised Fcitx service. Preserves Omarchy's per-user D-Bus activation configuration and XCompose support.
 - Adds a KDE-only `uwsm-app -- COMMAND ...` compatibility launcher for existing Omarchy app helpers. The KDE-specific `omarchy` wrapper handles terminal launch, screen lock and logout; other commands use the existing Omarchy CLI.
 - Imports `~/.local/state/omarchy/current/theme/colors.toml` as the KDE `Omarchy` color scheme and applies the current background. A user path unit watches `theme.generation`. `omarchy-kde-sync-theme` also applies a theme manually.
-- Overrides KDE browser integration **only inside Steam's CEF profile**. The native helper otherwise spins inside muvm; the Steam-specific manifest points to an idle helper. Ordinary browser profiles retain their KDE integration.
+- Overrides KDE browser integration inside Steam's CEF profile. The native helper otherwise spins inside muvm; the Steam-specific manifest points to an idle helper. The Steam installer also mounts that idle helper over the native executable inside its VM, covering the first client bootstrap recreating the profile. Ordinary host browsers retain their KDE integration.
 
 Hyprland compositor commands and its shell widgets remain specific to Hyprland. This installer does not port those widgets to Plasma. Omarchy applications, package management and CLI remain installed. User KDE choices are preserved on installer reruns; the initial color scheme and session defaults are applied once.
 
@@ -62,3 +62,7 @@ python3 -m unittest discover -s kde/tests -v
 ```
 
 Suspend/resume and every Omarchy compositor-specific command are not exhaustively tested by this installer.
+
+## M1 installation
+
+The public curl installer also completed on the M1 MacBook Air (`apple,j313`, `apple,t8103`), kernel `7.2.11-11-dsc3-ARCH`, on 2026-10-31. Plasma Login Manager is enabled and its Wayland greeter started successfully. Password login is configured, autologin is disabled, and **Omarchy (KDE Plasma)** is preselected for account `e`. The Steam/FEX installer and its M1 runtime/GPU checks passed before switching desktops. An owner sign-in to the new M1 Plasma desktop has not yet been verified.

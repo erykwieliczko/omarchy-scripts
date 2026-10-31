@@ -36,6 +36,8 @@ The M3 Pro restoration exercised the 4K VM, private GPU driver, x86 Vulkan place
 
 The same binary release also passed the 4K VM, FEX signal/SMC regressions, placed-mapping guard and 120-frame native Vulkan rendering check on an M1 MacBook Air. M1 validation is recorded separately from the M3 game result.
 
+When the KDE installer is present, guest setup also mounts its idle browser-integration helper over the native host inside the Steam VM. This covers Steam's first bootstrap recreating `htmlcache` and discarding the profile-specific override. The host desktop's browser integration is unaffected.
+
 Run the preparer regression tests on any Linux development machine:
 
 ```bash
