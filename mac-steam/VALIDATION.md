@@ -21,6 +21,8 @@ The stock ARM Mesa driver in the VM rejected the kernel's `features 0x3e` contra
 | Native ARM Steam client | Bootstrap/update completed; client build 1792618285 reached `WaitingForCredentials` |
 | Installer hardware/repository preflight | PASS on M3 Pro; x86 development machine rejected |
 | Installer installation and repeat installation | PASS; desktop entry, private versions and rollback links created |
+| Public `curl .../install-mac-steam-ultimate-wip.sh \| bash -` | PASS on M3 Pro; pinned payload and a fresh FEX release-asset download verified |
+| Public bootstrap `--check` as the desktop user | PASS without sudo |
 | Preparer tests | 4 PASS: tool updates, deferred patching, settings preservation, library paths with spaces |
 | Shell syntax and ShellCheck 0.11.0 | PASS |
 
