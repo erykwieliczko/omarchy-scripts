@@ -24,7 +24,7 @@ At login, **Omarchy (KDE Plasma)** is preselected. The native **Plasma (Wayland)
 - Adds a KDE-only `uwsm-app -- COMMAND ...` compatibility launcher for existing Omarchy app helpers. The KDE-specific `omarchy` wrapper handles terminal launch, screen lock and logout; other commands use the existing Omarchy CLI.
 - Imports `~/.local/state/omarchy/current/theme/colors.toml` as the KDE `Omarchy` color scheme and applies the current background. A user path unit watches `theme.generation`. `omarchy-kde-sync-theme` also applies a theme manually.
 - Overrides KDE browser integration inside Steam's CEF profile. The native helper otherwise spins inside muvm; the Steam-specific manifest points to an idle helper. The Steam installer also mounts that idle helper over the native executable inside its VM, covering the first client bootstrap recreating the profile. Ordinary host browsers retain their KDE integration.
-- Adds an AoE2-only KWin rule forcing **Accept focus**. Wine advertises `Input=False` with `WM_TAKE_FOCUS`, and keyboard focus could remain on an invisible Steam popup while the game looked active. Direct focus restores keys without capturing them in the background or changing other applications.
+- Once the updated Steam installer is present, removes the temporary AoE2-only **Accept focus** workaround from earlier installer revisions, preserving other window rules and a backup. The Steam installer now supplies a general Wine fix for timestamp-rejected focus requests. KDE and its normal focus policy remain in control.
 
 Hyprland compositor commands and its shell widgets remain specific to Hyprland. This installer does not port those widgets to Plasma. Omarchy applications, package management and CLI remain installed. User KDE choices are preserved on installer reruns; the initial color scheme and session defaults are applied once.
 
@@ -54,9 +54,9 @@ Then reboot, or restart the login manager after saving open work. The SDDM fallb
 - Spectacle captured the real desktop; the Omarchy wallpaper and palette applied successfully.
 - Fcitx's self-diagnostic reports **Wayland native input method protocol: 1** after the KWin launcher fix.
 - Steam launches through the existing muvm/FEX setup. Its previously busy Plasma browser integration host was replaced by an idle Steam-only helper.
-- Installer reruns preserve the KDE profile; four integration tests and ShellCheck pass.
+- Installer reruns preserve the KDE profile; five integration tests pass. The original shell launchers also passed ShellCheck.
 - The public `curl | bash` entry point passed both its normal-user `--check` and a full root rerun. The existing KDE session and Steam VM remained running throughout the rerun without `--activate`.
-- AoE2 keyboard input was verified with simulated F10 opening the in-game menu, including after Alt-Tab. The owner confirmed the physical keyboard works after applying the focus rule and reloading KWin's configuration; the desktop and game stayed running.
+- AoE2 keyboard input was initially restored by a game-specific focus rule. Further tracing reproduced a Steam/Wine timestamp race, and that workaround was retired. The patched Wine driver acquired focus during a deliberately stale offer in the real game; F10 opened the in-game menu, including after Alt-Tab, with an empty `kwinrulesrc`.
 
 Run the portable tests with:
 

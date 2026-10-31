@@ -1,0 +1,64 @@
+Subject: [PATCH] winex11: Recover timestamp-rejected focus while the WM still selects us
+
+A background client can advance the X server's last-focus-change timestamp
+between a WM_TAKE_FOCUS offer and our response, including while waiting for
+pointer grabs. XSetInputFocus then silently ignores the stale request.
+
+If the request failed and _NET_ACTIVE_WINDOW still selects the requested
+window, get a fresh server timestamp through an unmapped InputOnly window
+and retry once. Check the WM selection again after obtaining the timestamp.
+A later focus change still supersedes the retry through normal X11 timestamp
+ordering. No application or window-manager names are used.
+
+Observed with Steam's deferred widget focus when AoE2 replaces its splash
+window; the regression also reproduces using an isolated X server and the
+actual set_focus function with its pointer wait stubbed.
+
+Base: ValveSoftware/wine 7b3ceaf8644bb5d57140903e12897efac69be16a
+
+--- a/dlls/winex11.drv/event.c
++++ b/dlls/winex11.drv/event.c
+@@ -671,6 +671,35 @@
+ 
+ }
+ 
++/* XSetInputFocus silently ignores stale timestamps. A background client's
++ * focus restoration (Steam does this when a splash is destroyed) can advance
++ * the server's focus time while we wait for pointer grabs or process events.
++ * Retry once using a fresh server timestamp, but only while the WM still
++ * selects our window. Preserve timestamp ordering if the user switches away. */
++static void retry_rejected_focus( Display *display, Window window, Time time )
++{
++    XSetWindowAttributes attrs = {.event_mask = PropertyChangeMask};
++    Window focused, timestamp_window;
++    XEvent event;
++    int revert;
++
++    if (!time || !is_net_supported( x11drv_atom(_NET_ACTIVE_WINDOW) )) return;
++    XGetInputFocus( display, &focused, &revert );
++    if (focused == window || get_net_active_window( display ) != window) return;
++
++    timestamp_window = XCreateWindow( display, DefaultRootWindow(display), 0, 0, 1, 1, 0,
++                                     0, InputOnly, CopyFromParent, CWEventMask, &attrs );
++    XChangeProperty( display, timestamp_window, x11drv_atom(TIMESTAMP), XA_INTEGER,
++                     8, PropModeAppend, NULL, 0 );
++    XWindowEvent( display, timestamp_window, PropertyChangeMask, &event );
++    XDestroyWindow( display, timestamp_window );
++
++    if (get_net_active_window( display ) != window) return;
++    TRACE( "retrying focus for window %lx with server time %lu (was %lu)\n",
++           window, event.xproperty.time, time );
++    XSetInputFocus( display, window, RevertToParent, event.xproperty.time );
++}
++
+ /**********************************************************************
+  *              set_focus
+  */
+@@ -698,6 +727,7 @@
+     {
+         TRACE( "setting focus to %p (%lx) time=%ld\n", focus, win, time );
+         XSetInputFocus( display, win, RevertToParent, time );
++        retry_rejected_focus( display, win, time );
+     }
+ }
+ 

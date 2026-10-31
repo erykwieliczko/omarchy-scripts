@@ -1,0 +1,10 @@
+{
+  "wine_revision": "7b3ceaf8644bb5d57140903e12897efac69be16a",
+  "proton_version": "1793301796 experimental-11.0-20261027b-x86_64",
+  "original_sha256": "611ba16943065e19c84e0349e837770cd495b7c827ad5d33fde393480ed06de3",
+  "companions": {
+    "files/lib/wine/x86_64-unix/ntdll.so": "13177b3ee1d3e9aa2e5a6fe355f0e76f118b9fec1ec62d80e2ddddfd2542e00b",
+    "files/lib/wine/x86_64-unix/win32u.so": "be51c7f7d30616338f8e8bbce958ac9ea56c953448157a9218ca388d54e49739",
+    "files/lib/wine/x86_64-windows/winex11.drv": "03c9a1644a2c455f264f2fc8f5a30fa8dde4207bbf133cf02e22ba6f81c18a75"
+  }
+}

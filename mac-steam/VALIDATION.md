@@ -23,7 +23,7 @@ The stock ARM Mesa driver in the VM rejected the kernel's `features 0x3e` contra
 | Installer installation and repeat installation | PASS; desktop entry, private versions and rollback links created |
 | Public `curl .../install-mac-steam-ultimate-wip.sh \| bash -` | PASS on M3 Pro; pinned payload and a fresh FEX release-asset download verified |
 | Public bootstrap `--check` as the desktop user | PASS without sudo |
-| Preparer tests | 5 PASS: tool updates, deferred patching, settings preservation, library paths with spaces, native ARM ICD selection/restoration |
+| Preparer tests | 9 PASS: FEX/native ICD updates, preservation/deferred patching, and qualified Proton focus repair/update handling |
 | Shell syntax and ShellCheck 0.11.0 | PASS |
 
 Steam was shut down normally between installer runs. Test launches were muted. The desktop session was locked, so login readiness was checked from Steam's logs. No credentials were entered.
@@ -36,7 +36,13 @@ After the owner signed in and downloaded AoE2, the new installation was tested e
 
 The preparer now installs an ARM ICD manifest pointing at `/run/host/usr/lib/libvulkan_asahi.so` and selects it in the main FEX configuration's `AppOverrides` via `HostEnv`. A probe inside the game's actual pressure-vessel container changed from `vkCreateInstance=-9` to successful enumeration of **Apple M3 Pro**. The real game then created its **3024×1964** swapchain and reached gameplay; the owner confirmed it runs. The real downloaded Valve tool uses the private patched FEX (SHA-256 `cf4ee475f303bbda6539b333dda2c34ce2ca8146c1f5deb3f13975b7a8473798`). No new game FPS measurement is claimed.
 
-Keyboard input initially failed because X11 focus remained on a hidden Steam popup despite the game appearing active. The companion KDE installer now supplies an AoE2-only **Accept focus** rule. Simulated F10 opened the in-game menu, including after Alt-Tab, and the owner confirmed the physical keyboard works. The game and desktop did not need restarting for this input fix.
+Keyboard input initially failed because X11 focus remained on a hidden Steam popup despite the game appearing active. An AoE2-only **Accept focus** rule restored input, and the owner confirmed the physical keyboard worked. This was a workaround and has since been removed.
+
+Further tracing captured the underlying sequence during splash replacement: KWin offered focus at server time `39439889`; Steam changed input focus with CurrentTime up through `39440081`; Wine's delayed request arrived at `39440440`, still carrying `39439889`. X11 rejected it. Normal Alt-Tab, five rapid switching delays and a native globally-active test client all worked, demonstrating why steady-state tests alone missed it.
+
+A local Wine source patch now verifies a timestamped request, obtains a fresh server timestamp if the WM still selects its target, and retries once after checking that selection again. A regression compiling the real Wine functions against Xvfb fails on the original stale-offer case and passes all five cases with the patch, including user switches before/during recovery and absent EWMH support.
+
+The rebuilt `winex11.so` uses Wine revision `7b3ceaf8644bb5d57140903e12897efac69be16a`; SHA-256 is `27539e89604760258a62e003c37de18e2503ee5ec56d5d96127a50cfba3d3276`. In the real AoE2 process, an intentionally stale offer `40839640` was rejected; the patched driver retried at `40839680` and received FocusIn. Simulated F10 opened the in-game menu in a new skirmish and after Alt-Tab. KWin's rule file is empty. Verbose Wine event logging used for diagnosis was removed before these game input checks; the FEX binary hash and native Vulkan setting remain unchanged. No new game FPS result is claimed.
 
 The AoE-only Vulkan bridge is enabled using FEX's Steam application configuration and Arch library paths. Valve supplies the bridge binaries with its FEX tool after sign-in/game installation.
 

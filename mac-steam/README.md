@@ -10,6 +10,7 @@ The native ARM Steam client runs inside **muvm's 4K-page Linux guest** on the Ma
 | FEX local fixes | `patches/fex/0002`–`0004`: invalid opcode handling on hot SMC pages, larger hot-page tracking, constant-time IR block append |
 | Mesa, ARM64 + x86-64 + i386 | [omacom/mesa](https://github.com/omacom/mesa/tree/672657e05e6b382a0203975f7a26c46f9a674973), `672657e05e6b382a0203975f7a26c46f9a674973` |
 | Mesa local fixes | `patches/mesa/0001`–`0005`: M3 G15 virtio wire conversion, queue priority limits, VM status handling, placed mapping bounds, host-backed memory accounting |
+| Wine focus repair | `ValveSoftware/wine` `7b3ceaf8644bb5d57140903e12897efac69be16a` + `patches/wine/0001`, qualified for Proton Experimental `11.0-20261027b` |
 | Binary assets | GitHub release `mac-steam-ultimate-wip-v0.1.0`, pinned by [SHA-256](artifacts.sha256) |
 
 FEX is built with Steam support, bundled fmt/xxhash, release optimization and all three local fixes. The tested configuration enables seccomp fidelity and uses `SMCHotPageFaults=32`, reduced x87 precision and no disk code cache. Profiling is disabled for normal use.
@@ -32,9 +33,17 @@ AoE2's native bridge also needs an ARM driver manifest inside pressure-vessel. I
 
 No account credentials or game files are bundled. First use requires Steam sign-in and the normal game/runtime downloads. The installer leaves resolution and game graphics settings to the player.
 
+### Keyboard focus
+
+Steam can advance X11's last-focus-change timestamp while Wine is responding to `WM_TAKE_FOCUS`, for example when a game replaces a splash window. The server silently rejects Wine's older timestamp, leaving keyboard focus on Steam despite KDE showing the game as active. This happens through XWayland; the KDE desktop itself uses Wayland.
+
+The local Wine source patch checks whether the request actually acquired focus. If it failed and the window manager still selects that window, Wine obtains a fresh server timestamp from an unmapped InputOnly window, checks the selection again, and retries once. A later focus change still supersedes the retry through normal timestamp ordering. This code has no application or compositor name checks. It is a local component repair, not an upstream-accepted Wine change.
+
+The preparer installs only the rebuilt `winex11.so` into the qualified Proton Experimental build, after checking the exact version and SHA-256 hashes of its ntdll, win32u and Windows X11 module. It backs up the original as `winex11.so.valve-original-focus`, defers changes while Proton is running or downloading, and restores the original if a partial update retains our module in an unqualified build. Other builds and modified drivers are left alone. A future Proton update needs qualification before this repair is applied to it. The repair applies to every game using that qualified Proton build; there is no AoE2 keyboard rule.
+
 ## Validation
 
-The M3 Pro restoration exercised the 4K VM, private GPU driver, x86 Vulkan placed-mapping guard, and the patched FEX signal/SMC regressions. After sign-in and the normal downloads, the real Valve tool was patched and AoE2 reached gameplay at 3024×1964. The owner confirmed both launch and keyboard input (with the companion KDE focus fix). Detailed results and the startup driver-discovery fix are in [VALIDATION.md](VALIDATION.md). No new game FPS measurement is claimed.
+The M3 Pro restoration exercised the 4K VM, private GPU driver, x86 Vulkan placed-mapping guard, and the patched FEX signal/SMC regressions. After sign-in and the normal downloads, the real Valve tool was patched and AoE2 reached gameplay at 3024×1964. The general Wine focus repair also passed an injected stale offer in the real game and F10 after Alt-Tab, with no KDE focus rule. Detailed results and the startup driver-discovery fix are in [VALIDATION.md](VALIDATION.md). No new game FPS measurement is claimed.
 
 The same binary release also passed the 4K VM, FEX signal/SMC regressions, placed-mapping guard and 120-frame native Vulkan rendering check on an M1 MacBook Air. M1 validation is recorded separately from the M3 game result.
 
@@ -44,6 +53,12 @@ Run the preparer regression tests on any Linux development machine:
 
 ```bash
 python3 -m unittest discover -s mac-steam/tests -v
+```
+
+The X11 regression uses Wine's actual source functions with the pointer wait stubbed and real X server focus/timestamp handling. It requires a C compiler, Xlib development files and Xvfb. The original function fails the stale-offer case; the patch passes it and the user-switch cancellation cases:
+
+```bash
+python3 mac-steam/tests/focus-retry.py /path/to/patched-wine/dlls/winex11.drv/event.c
 ```
 
 ## Rebuilding from source
@@ -66,6 +81,14 @@ For both x86 Mesa stacks, run [build/mesa-x86.sh](build/mesa-x86.sh) on an x86-6
 
 `build/overlays.sh X86_STAGE_PARENT OUTPUT_DIRECTORY` combines those staged drivers with the distribution's base overlays and adds Valve's graphics-provider manifest. Images always use 4096-byte blocks.
 
+Build the Wine X11 module on x86-64 Linux with Docker, Git, Python and zstd:
+
+```bash
+bash mac-steam/build/wine-focus.sh "$HOME/.cache/mac-steam-wine-build"
+```
+
+Only `winex11.so` is installed; the incidental ntdll/win32u build products are not used. Both the binary and complete corresponding source archives are published beside the FEX/Mesa assets. The installer stores that Wine source under `sources/wine-focus`. Wine is LGPL-2.1-or-later; its license and source-file notices are included.
+
 ## Recovery
 
 Close Steam/muvm before changing versions. To restore the preceding private installation:
@@ -76,5 +99,7 @@ sudo mv -Tf /opt/mac-steam-ultimate/current.rollback /opt/mac-steam-ultimate/cur
 ```
 
 Steam tool files can be restored from `*.valve-original` and `*.pre-ultimate` after disabling this launcher/preparer. Steam's Verify Integrity operation can also restore its managed files. Keep game saves and library directories in place.
+
+The Proton X11 module's original is `winex11.so.valve-original-focus` beside `winex11.so`. Restore it with Steam closed, or verify Proton Experimental in Steam, after disabling the focus preparer if you want to keep Valve's module. Rolling back the private prefix alone does not replace this Steam-library file.
 
 Upstream FEX, Mesa and bundled dependencies retain their own licenses. FEX binaries include bundled dependency license notices; the installer also downloads the full patched Mesa source, including its copyright and license notices, into `sources/mesa` in the private installation. Patches preserve their authorship. This repository packages a local working configuration; it is independent of Valve, FEX, Asahi Linux and Omarchy.

@@ -47,6 +47,23 @@ class KDEIntegration(unittest.TestCase):
                                 env=environment, capture_output=True, text=True, check=True)
         self.assertEqual(result.stdout, 'hello world\nliteral$\n--flag\n')
 
+    def test_retiring_focus_workaround_preserves_other_window_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'kwinrulesrc'
+            original = ('[General]\nOrder=user,omarchy-aoe2-focus,other\n'
+                        '[user]\nacceptfocus=false\nwmclass=my-app\n'
+                        '[omarchy-aoe2-focus]\nacceptfocus=true\n'
+                        '[other]\nopacityactive=90\n')
+            path.write_text(original)
+            module('setup-user').retire_focus_rule(path)
+            config = configparser.ConfigParser()
+            config.read(path)
+            self.assertEqual(config['General']['order'], 'user,other')
+            self.assertEqual(config['user']['acceptfocus'], 'false')
+            self.assertEqual(config['other']['opacityactive'], '90')
+            self.assertNotIn('omarchy-aoe2-focus', config)
+            self.assertEqual(path.with_name('kwinrulesrc.pre-wine-focus-repair').read_text(), original)
+
 
 if __name__ == '__main__':
     unittest.main()

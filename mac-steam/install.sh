@@ -84,13 +84,16 @@ cleanup() {
 }
 trap cleanup EXIT
 chmod 755 "$stage"
-mkdir -p "$stage/fex" "$stage/mesa-aarch64" "$stage/runtime"
+mkdir -p "$stage/fex" "$stage/mesa-aarch64" "$stage/runtime" "$stage/wine-focus"
 tar --zstd -xf "$cache/fex-aoe2-b608a4767-r1-aarch64.tar.zst" -C "$stage/fex"
 tar --zstd -xf "$cache/mesa-672657e-r1-aarch64.tar.zst" -C "$stage/mesa-aarch64"
 mkdir -p "$stage/sources/mesa"
 tar --zstd -xf "$cache/mesa-672657e-r1-source.tar.zst" -C "$stage/sources/mesa"
 mkdir -p "$stage/x86-stage"
 tar --zstd -xf "$cache/mesa-672657e-r1-x86.tar.zst" -C "$stage/x86-stage"
+tar --zstd -xf "$cache/wine-focus-7b3ceaf-r1-x86_64.tar.zst" -C "$stage/wine-focus"
+mkdir -p "$stage/sources/wine-focus"
+tar --zstd -xf "$cache/wine-focus-7b3ceaf-r1-source.tar.zst" -C "$stage/sources/wine-focus"
 bash "$project/build/overlays.sh" "$stage/x86-stage" "$stage/overlays" > "$cache/overlays.log" 2>&1
 rm -rf "$stage/x86-stage"
 cp -a "$project/runtime/." "$stage/runtime/"

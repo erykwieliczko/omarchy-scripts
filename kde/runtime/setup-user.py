@@ -26,6 +26,26 @@ def update_config(path, groups):
         parser.write(stream, space_around_delimiters=False)
 
 
+def retire_focus_rule(path):
+    """Remove our superseded workaround without changing other window rules."""
+    if not path.exists():
+        return
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    parser.optionxform = str
+    parser.read(path)
+    if not parser.remove_section('omarchy-aoe2-focus'):
+        return
+    backup = path.with_name(path.name + '.pre-wine-focus-repair')
+    if not backup.exists():
+        shutil.copy2(path, backup)
+    for key in ('Order', 'rules'):
+        if parser.has_option('General', key):
+            groups = parser['General'][key].split(',')
+            parser['General'][key] = ','.join(g for g in groups if g != 'omarchy-aoe2-focus')
+    with path.open('w') as stream:
+        parser.write(stream, space_around_delimiters=False)
+
+
 def main():
     if os.geteuid() == 0:
         raise SystemExit('Run setup-user.py as the desktop account.')
@@ -53,13 +73,8 @@ def main():
         subprocess.run(['kwriteconfig6', '--file', 'kwinrc', '--group', 'Wayland',
                         '--key', 'InputMethod', '--notify',
                         '/usr/share/applications/fcitx5-wayland-launcher.desktop'], check=True)
-    # Wine advertises Input=False and WM_TAKE_FOCUS, but AoE can leave X11
-    # focus on a hidden Steam popup. Let KWin focus this game directly.
-    update_config(config / 'kwinrulesrc', {'omarchy-aoe2-focus': {
-        'Description': 'AoE2: accept keyboard focus',
-        'wmclass': 'steam_app_813780', 'wmclassmatch': '1',
-        'wmclasscomplete': 'false', 'acceptfocus': 'true', 'acceptfocusrule': '2',
-    }})
+    if Path('/opt/mac-steam-ultimate/current/wine-focus/manifest.json').exists():
+        retire_focus_rule(config / 'kwinrulesrc')
     # Steam's CEF discovers the system Chromium extension, but its native host
     # spins inside muvm. Override only the Steam profile, preserving browser integration elsewhere.
     native_manifest = Path('/etc/chromium/native-messaging-hosts/org.kde.plasma.browser_integration.json')

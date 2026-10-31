@@ -65,9 +65,79 @@ def tool_in_use(tool):
     return False
 
 
+def proton_in_use(proton):
+    for entry in Path('/proc').iterdir():
+        if not entry.name.isdecimal():
+            continue
+        try:
+            # A host invocation cannot inspect processes inside an existing VM.
+            if os.sysconf('SC_PAGE_SIZE') != 4096:
+                argv = (entry / 'cmdline').read_bytes().split(b'\0')
+                if argv and Path(os.fsdecode(argv[0])).name == 'muvm':
+                    return True
+            if str(proton) + '/' in (entry / 'maps').read_text():
+                return True
+        except (FileNotFoundError, PermissionError, ProcessLookupError):
+            pass
+    return False
+
+
+def prepare_proton(library, seen):
+    private = PREFIX / 'wine-focus'
+    if not (private / 'manifest.json').is_file():
+        return
+    proton = library / 'steamapps/common/Proton - Experimental'
+    appmanifest = library / 'steamapps/appmanifest_1493710.acf'
+    if (not appmanifest.exists()
+            or not re.search(r'"StateFlags"\s+"4"', appmanifest.read_text())
+            or (library / 'steamapps/downloading/1493710').exists()):
+        return
+    manifest = json.loads((private / 'manifest.json').read_text())
+    driver = proton / 'files/lib/wine/x86_64-unix/winex11.so'
+    companions = {proton / name: digest for name, digest in manifest['companions'].items()}
+    paths = [driver, proton / 'version', *companions]
+    if not all(path.is_file() for path in paths):
+        return
+    signature = tuple((p.stat().st_ino, p.stat().st_size, p.stat().st_mtime_ns) for p in paths)
+    key = 'proton:' + str(proton)
+    if seen.get(key) == signature:
+        return
+    digest = hashlib.sha256(driver.read_bytes()).hexdigest()
+    qualified = ((proton / 'version').read_text().strip() == manifest['proton_version']
+                 and all(hashlib.sha256(p.read_bytes()).hexdigest() == value
+                         for p, value in companions.items()))
+    backup = driver.with_name(driver.name + '.valve-original-focus')
+    if not qualified:
+        # A partial Proton update can retain our modified file. Restore the
+        # original module for that file before leaving an unqualified build alone.
+        if digest == manifest['patched_sha256']:
+            if proton_in_use(proton):
+                return
+            if not backup.exists() or hashlib.sha256(backup.read_bytes()).hexdigest() != manifest['original_sha256']:
+                raise ValueError('Cannot restore the original Proton X11 driver')
+            atomic_bytes(driver, backup.read_bytes(), 0o755)
+        print(f'Proton focus repair needs qualification for: {proton}', file=sys.stderr, flush=True)
+    elif digest == manifest['original_sha256']:
+        if proton_in_use(proton):
+            return
+        data = (private / 'winex11.so').read_bytes()
+        if hashlib.sha256(data).hexdigest() != manifest['patched_sha256']:
+            raise ValueError('Private Proton X11 driver checksum failed')
+        if not backup.exists():
+            shutil.copy2(driver, backup)
+        elif hashlib.sha256(backup.read_bytes()).hexdigest() != manifest['original_sha256']:
+            raise ValueError('Unexpected original Proton X11 driver backup')
+        atomic_bytes(driver, data, 0o755)
+        print(f'Installed Wine focus repair: {proton}', flush=True)
+    elif digest != manifest['patched_sha256']:
+        print(f'Leaving an unrecognized Proton X11 driver unchanged: {proton}', file=sys.stderr, flush=True)
+    seen[key] = tuple((p.stat().st_ino, p.stat().st_size, p.stat().st_mtime_ns) for p in paths)
+
+
 def prepare(root, seen):
     paths = libraries(root)
     for library in paths:
+        prepare_proton(library, seen)
         tool = library / 'steamapps/common/FEX-Emu'
         binaries = {tool / 'usr/bin' / name: PREFIX / 'fex/bin' / name
                     for name in ('FEX', 'FEXServer', 'FEXServerManager')}
