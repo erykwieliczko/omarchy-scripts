@@ -53,6 +53,7 @@ Then reboot, or restart the login manager after saving open work. The SDDM fallb
 - Fcitx's self-diagnostic reports **Wayland native input method protocol: 1** after the KWin launcher fix.
 - Steam launches through the existing muvm/FEX setup. Its previously busy Plasma browser integration host was replaced by an idle Steam-only helper.
 - Installer reruns preserve the KDE profile; four integration tests and ShellCheck pass.
+- The public `curl | bash` entry point passed both its normal-user `--check` and a full root rerun. The existing KDE session and Steam VM remained running throughout the rerun without `--activate`.
 
 Run the portable tests with:
 
