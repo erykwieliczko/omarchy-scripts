@@ -2,7 +2,7 @@
 
 ## Install Mac Steam Ultimate WIP
 
-Steam on **Omarchy / Arch Linux ARM, Apple M3 Pro (T6030)**, using the FEX and Mesa fixes that got Age of Empires II: Definitive Edition running.
+Steam on **Omarchy / Arch Linux ARM, Apple M1 (T8103) or M3 Pro (T6030)**, using the FEX and Mesa fixes that got Age of Empires II: Definitive Edition running on the M3 Pro.
 
 Run this from a terminal in your desktop account:
 
@@ -16,7 +16,7 @@ Sign in to Steam normally, install AoE2 DE, and select **Proton Experimental** i
 
 The installer is repeatable, keeps backups of replaced Steam files, and supports a root invocation with `--user YOUR_ACCOUNT`. Close existing Steam/muvm applications before installing. A first installation downloads roughly 1 GB before Steam's own client/runtime downloads. Keep at least 6 GiB free, plus space for games.
 
-**WIP scope:** qualified on the 14-inch M3 Pro, Omarchy edge, kernel `7.2.11-11-dsc3-ARCH`. Other Apple chips and distributions are rejected by this release. Game performance depends on the game, Proton, and the host graphics/kernel stack; this installer does not promise 120 FPS.
+**WIP scope:** supports the M1 MacBook Air and 14-inch M3 Pro on Omarchy edge, kernel `7.2.11-11-dsc3-ARCH`. Other Apple chips and distributions are rejected by this release. See the validation notes for checks performed on each machine. Game performance depends on the game, Proton, and the host graphics/kernel stack; this installer does not promise 120 FPS.
 
 See [versions, implementation, validation and rebuilding](mac-steam/README.md).
 

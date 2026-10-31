@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install Mac Steam Ultimate WIP — M3 Pro / Omarchy Apple Silicon.
+# Install Mac Steam Ultimate WIP — M1 / M3 Pro, Omarchy Apple Silicon.
 set -euo pipefail
 project=$(cd -- "$(dirname -- "$0")" && pwd)
 release=mac-steam-ultimate-wip-v0.1.0
@@ -14,7 +14,7 @@ while (( $# )); do
         --help|-h)
             printf '%s\n' 'Install Mac Steam Ultimate WIP' \
                 'Usage: install.sh [--user DESKTOP_USER] [--check]' \
-                'Requires Omarchy/Arch ARM on the qualified Apple M3 Pro (T6030).' \
+                'Requires Omarchy/Arch ARM on Apple M1 (T8103) or M3 Pro (T6030).' \
                 'Run from your desktop account with sudo, or specify --user as root.'
             exit 0 ;;
         *) echo "Unknown argument: $1" >&2; exit 2 ;;
@@ -24,8 +24,8 @@ die() { echo "Steam Ultimate: $*" >&2; exit 1; }
 [[ $(uname -m) == aarch64 ]] || die 'This installer requires an ARM64 Mac running Linux.'
 [[ -f /etc/arch-release ]] || die 'This installer requires Omarchy/Arch Linux ARM.'
 [[ -r /proc/device-tree/compatible ]] || die 'Cannot identify the Apple Silicon hardware.'
-tr '\0' '\n' < /proc/device-tree/compatible | grep -qx 'apple,t6030' ||
-    die 'This WIP release is qualified for M3 Pro (T6030) only.'
+tr '\0' '\n' < /proc/device-tree/compatible | grep -Exq 'apple,(t8103|t6030)' ||
+    die 'This WIP release supports M1 (T8103) and M3 Pro (T6030).'
 [[ $(getconf PAGESIZE) == 16384 ]] || die 'Expected the qualified 16K host kernel.'
 for repo in omarchy asahi-alarm; do
     pacman-conf --repo-list | grep -qx "$repo" || die "Required pacman repository is missing: $repo"
@@ -141,7 +141,7 @@ fi
 cat > "$desktop" <<'EOF'
 [Desktop Entry]
 Name=Steam (Mac Ultimate WIP)
-Comment=Native ARM Steam with the AoE2-tested FEX and M3 Pro graphics fixes
+Comment=Native ARM Steam with the AoE2-tested FEX and Apple Silicon graphics fixes
 Exec=/usr/local/bin/steam-mac-ultimate %U
 Icon=steam
 Terminal=false

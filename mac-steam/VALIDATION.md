@@ -35,3 +35,20 @@ This exact FEX source plus the three local patches, and this Mesa base plus the 
 The fresh machine has no signed-in Steam account or downloaded AoE2 game files. A new end-to-end game launch and the preparer's application of the Valve tool after its real download therefore remain for the signed-in session. The preparer's download/update behavior is covered by simulated Steam tool fixtures; FEX and the GPU regressions above ran on the real M3.
 
 The AoE-only Vulkan bridge is enabled using FEX's Steam application configuration and Arch library paths. Valve supplies the bridge binaries with its FEX tool after sign-in/game installation.
+
+## M1 installation — 2026-10-31
+
+Hardware: MacBook Air M1 (`apple,j313`, `apple,t8103`), 8 GB RAM. Host: Omarchy/Arch ARM, kernel `7.2.11-11-dsc3-ARCH`, 16384-byte pages. The same published FEX and Mesa binaries were installed without rebuilding; the installer now accepts this M1 as well as the M3 Pro.
+
+| Check | Result |
+| --- | --- |
+| Hardware/repository preflight and installation | PASS for desktop account `e` |
+| Private muvm guest | 4096-byte pages, binfmt points to the private FEX |
+| Private native Vulkan driver | Apple M1 (G13G B1), Vulkan 1.4.363 |
+| Fork SMC/signal checks | All six PASS: hot-page, same-page, restart-state, instruction straddle, instruction length, signal frame |
+| Local invalid-opcode regression | PASS at hot-page thresholds 0 and 32 |
+| IR append regression | PASS, 1000 instructions / 100 rewrites |
+| x86 Vulkan placed mapping through FEX | `placed=correct guard_changed=0` |
+| Native Vulkan rendering in the VM | `vkcube --c 120`, PASS, exit status 0 on the M1 GPU |
+
+These are runtime and graphics checks on the M1. They do not establish an M1 AoE2 game result or frame rate.

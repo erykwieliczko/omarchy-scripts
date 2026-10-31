@@ -34,6 +34,8 @@ No account credentials or game files are bundled. First use requires Steam sign-
 
 The M3 Pro restoration exercised the 4K VM, private GPU driver, x86 Vulkan placed-mapping guard, and the patched FEX signal/SMC regressions. Detailed results are in [VALIDATION.md](VALIDATION.md). AoE2 reached the menu and gameplay with this FEX/Mesa patch set in the preceding installation; the fresh-machine validation distinguishes that history from tests performed after reinstalling.
 
+The same binary release also passed the 4K VM, FEX signal/SMC regressions, placed-mapping guard and 120-frame native Vulkan rendering check on an M1 MacBook Air. M1 validation is recorded separately from the M3 game result.
+
 Run the preparer regression tests on any Linux development machine:
 
 ```bash
