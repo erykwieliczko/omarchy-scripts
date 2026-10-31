@@ -52,5 +52,6 @@ Hardware: MacBook Air M1 (`apple,j313`, `apple,t8103`), 8 GB RAM. Host: Omarchy/
 | Native Vulkan rendering in the VM | `vkcube --c 120`, PASS, exit status 0 on the M1 GPU |
 | Native ARM Steam client | Bootstrap/update completed; client build 1792618285 opened its sign-in window |
 | Updated public Steam bootstrap | PASS: normal-user `--check` and complete root rerun using the public curl URL |
+| KDE browser helper fallback | Idle helper bound inside the existing Steam VM; host executable checksum unchanged |
 
 These are runtime and graphics checks on the M1. They do not establish an M1 AoE2 game result or frame rate.
