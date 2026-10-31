@@ -37,3 +37,29 @@ curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/
 ```
 
 See [KDE integration, backups and validation](kde/README.md).
+
+## Set up Mac keyboard
+
+Make the built-in Apple keyboard behave like a PC keyboard on **Omarchy / Arch Linux ARM, Apple Silicon**:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/setup-mac-keyboard.sh | bash -
+```
+
+The script asks for sudo and applies all three settings:
+
+- **Option ↔ Command on both sides:** Option becomes Super; Command becomes Alt, with right Command acting as right Alt / AltGr.
+- **F1–F12 by default:** press F11 alone to send F11.
+- **Fn ↔ left Ctrl:** the physical Fn key becomes Ctrl, and the physical left Ctrl key becomes Fn. Hold **physical left Ctrl** with the top row for volume, brightness, and media controls.
+
+Changes take effect immediately and survive reboot, including at the login screen. The script uses the kernel's built-in `hid_apple` settings, saves `/etc/modprobe.d/apple-keyboard.conf`, and runs `mkinitcpio -P` to include the configuration in the boot images. It is independent of KDE or Hyprland and can be run again.
+
+Check support and current settings without changing anything:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/setup-mac-keyboard.sh | bash -s -- --check
+```
+
+Each installation backs up the previous configuration, live driver values, and `/boot/initramfs-*.img` files under `/var/lib/omarchy-mac-keyboard/backups/`. If configuration, rebuilding, or live activation fails, the script attempts to restore them automatically. To undo a successful installation, restore `apple-keyboard.conf` from the chosen backup (or remove `/etc/modprobe.d/apple-keyboard.conf` if that backup has no configuration file), run `sudo mkinitcpio -P`, and reboot. The `before-*` files record the previous live values.
+
+Validated on the 14-inch M3 Pro running Omarchy / Arch Linux ARM, kernel `7.2.11-11-dsc3-ARCH`. Other Apple Silicon models require the same three driver parameters; `--check` verifies their availability.
