@@ -22,7 +22,7 @@ Baseline used on 2026-10-31: native `omarchy/steam 1.0.0.87-1`, client build `17
 
 ## Integration
 
-Files live under `/opt/mac-steam-ultimate/releases/`; `current` selects the active installation and `previous` retains the preceding one. Distribution-owned Mesa/FEX executables are preserved on the host. Steam's user desktop entry launches `/usr/local/bin/steam-mac-ultimate`; its previous entry is saved as `steam.desktop.pre-ultimate`.
+Files live under `/opt/mac-steam-ultimate/releases/`; `current` selects the active installation and `previous` retains the preceding one. Distribution-owned Mesa/FEX executables are preserved on the host. Steam's user desktop entry launches `/usr/local/bin/steam-mac-ultimate`; its previous entry is saved as `steam.desktop.pre-ultimate`. `/usr/local/bin/steam` and `/usr/local/bin/omarchy-launch-steam` route command-line launches, game shortcuts and Omarchy bindings through the same setup; existing local commands are backed up as `*.pre-ultimate`. Inside the 4K guest the wrapper selects `/usr/bin/steam` directly.
 
 Valve's FEX compatibility tool (Steam app `3127680`) supplies the Vulkan guest/host bridge. `runtime/prepare.py` runs before Steam and watches for completed tool downloads while Steam runs. It replaces the four FEX executables atomically and saves the first originals as `*.valve-original`. It defers changes when the tool is downloading or running. Existing JSON settings are merged and backed up as `*.pre-ultimate`.
 

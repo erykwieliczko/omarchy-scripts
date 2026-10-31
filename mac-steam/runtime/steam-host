@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Route command-line Steam, game shortcuts and Omarchy's launcher through muvm.
+set -euo pipefail
+if [[ $(getconf PAGESIZE) == 4096 ]]; then
+    exec /usr/bin/steam "$@"
+fi
+exec /usr/local/bin/steam-mac-ultimate "$@"

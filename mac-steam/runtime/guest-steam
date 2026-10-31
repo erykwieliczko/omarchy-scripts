@@ -10,4 +10,4 @@ exec >> "$cache/client.log" 2>&1
 python3 "$prefix/runtime/prepare.py" --watch &
 watcher=$!
 trap 'kill "$watcher" 2>/dev/null || :' EXIT
-steam "$@"
+/usr/bin/steam "$@"

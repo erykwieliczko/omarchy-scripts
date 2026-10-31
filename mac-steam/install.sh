@@ -118,6 +118,16 @@ mv -Tf /opt/mac-steam-ultimate/current.new /opt/mac-steam-ultimate/current
 activated=1
 install -d /usr/local/bin
 ln -sfn /opt/mac-steam-ultimate/current/runtime/steam-mac-ultimate /usr/local/bin/steam-mac-ultimate
+for name in steam omarchy-launch-steam; do
+    destination=/usr/local/bin/$name
+    if [[ -e $destination || -L $destination ]]; then
+        [[ ! -d $destination ]] || die "Cannot replace directory: $destination"
+        [[ -e $destination.pre-ultimate || -L $destination.pre-ultimate ]] ||
+            cp -a "$destination" "$destination.pre-ultimate"
+        rm -f "$destination"
+    fi
+    ln -s /opt/mac-steam-ultimate/current/runtime/steam-host "$destination"
+done
 runuser -u "$target_user" -- python3 /opt/mac-steam-ultimate/current/runtime/prepare.py
 applications=$user_home/.local/share/applications
 install -d -o "$target_user" -g "$(id -gn "$target_user")" "$applications"
@@ -140,6 +150,7 @@ StartupWMClass=Steam
 EOF
 chown "$target_user:$(id -gn "$target_user")" "$desktop"
 runuser -u "$target_user" -- update-desktop-database "$applications" || :
+runuser -u "$target_user" -- xdg-mime default steam.desktop x-scheme-handler/steam x-scheme-handler/steamlink || :
 echo 'Installed! Open Steam (Mac Ultimate WIP) from your app launcher, or run steam-mac-ultimate.'
 echo 'Sign in normally, install AoE2 DE, and use Proton Experimental. Steam supplies its own FEX tool and Vulkan bridge.'
 echo 'The launcher applies the pinned AoE2 fixes when that tool finishes downloading.'
