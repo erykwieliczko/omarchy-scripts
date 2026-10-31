@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+case :${XDG_CURRENT_DESKTOP:-}: in
+    *:KDE:*) ;;
+    *) exec /usr/bin/omarchy "$@" ;;
+esac
+case ${1:-}:${2:-} in
+    system:lock)
+        exec qdbus6 org.freedesktop.ScreenSaver /ScreenSaver org.freedesktop.ScreenSaver.Lock ;;
+    system:logout)
+        exec qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logout ;;
+    launch:terminal)
+        shift 2
+        exec konsole "$@" ;;
+esac
+exec /usr/bin/omarchy "$@"

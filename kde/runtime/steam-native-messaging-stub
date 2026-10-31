@@ -1,0 +1,3 @@
+#!/bin/sh
+# Steam CEF needs no KDE browser integration; keep its native-messaging pipe idle.
+exec sleep infinity

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Omarchy's existing app helpers use this spelling. KDE owns its own session.
+set -euo pipefail
+case :${XDG_CURRENT_DESKTOP:-}: in
+    *:KDE:*) ;;
+    *) exec /usr/bin/uwsm-app "$@" ;;
+esac
+case ${1:-} in
+    ping|stop) exit 0 ;;
+    --) shift ;;
+    -*) echo 'KDE app launcher supports: uwsm-app -- COMMAND [ARGS...]' >&2; exit 2 ;;
+esac
+(( $# )) || { echo 'No application specified.' >&2; exit 2; }
+exec "$@"

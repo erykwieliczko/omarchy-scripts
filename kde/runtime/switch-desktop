@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Invoked by a root systemd timer after the installer has finished.
+set -euo pipefail
+account=${1:?Desktop account required}
+uid=$(id -u "$account")
+# Finish Steam normally before the old compositor disappears.
+if pgrep -u "$uid" -f '^([^ ]*/)?muvm([[:space:]]|$)' >/dev/null; then
+    runuser -u "$account" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
+        muvm -- sh -c '/usr/bin/steam -shutdown >/dev/null 2>&1' || :
+    for (( attempt=0; attempt<10; ++attempt )); do
+        pgrep -u "$uid" -f '^([^ ]*/)?muvm([[:space:]]|$)' >/dev/null || break
+        sleep 1
+    done
+fi
+systemctl stop sddm.service plasmalogin.service
+loginctl terminate-user "$account" || :
+systemctl reset-failed plasmalogin.service
+systemctl start plasmalogin.service

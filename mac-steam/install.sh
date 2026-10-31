@@ -32,7 +32,7 @@ for repo in omarchy asahi-alarm; do
 done
 if [[ -z $target_user && $EUID != 0 ]]; then target_user=$(id -un); fi
 if [[ -z $target_user ]]; then
-    target_user=$(loginctl list-sessions --no-legend | awk '$4 == "seat0" && $3 != "root" { print $3; exit }')
+    target_user=$(loginctl list-sessions --no-legend | awk '$2 >= 1000 && $4 == "seat0" && $3 != "root" { print $3; exit }')
 fi
 [[ -n $target_user && $target_user != root ]] || die 'Use --user YOUR_DESKTOP_ACCOUNT.'
 uid=$(id -u "$target_user")
@@ -47,7 +47,7 @@ fi
 (( EUID == 0 )) || die 'Run the bootstrap as your normal user; it invokes sudo for installation.'
 exec 9>/run/lock/mac-steam-ultimate.lock
 flock -n 9 || die 'Another Steam Ultimate installation is running.'
-if pgrep -u "$uid" -x muvm >/dev/null; then
+if pgrep -u "$uid" -f '^([^ ]*/)?muvm([[:space:]]|$)' >/dev/null; then
     die 'Close Steam and other muvm applications, then rerun this installer so the VM can use the new drivers.'
 fi
 [[ $(df --output=avail -k /opt | tail -1) -gt 6291456 ]] || die 'At least 6 GiB of free disk space is required.'
