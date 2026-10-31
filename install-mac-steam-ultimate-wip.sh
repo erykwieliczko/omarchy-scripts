@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Install Mac Steam Ultimate WIP
+# curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/install-mac-steam-ultimate-wip.sh | bash -
+
+main() {
+    set -euo pipefail
+    case ${1:-} in
+        --help|-h)
+            printf '%s\n' 'Install Mac Steam Ultimate WIP' \
+                'Usage: bash install-mac-steam-ultimate-wip.sh [--check] [--user DESKTOP_ACCOUNT]' \
+                'Qualified for Omarchy/Arch ARM on Apple M3 Pro (T6030).' \
+                'Run from your normal desktop account; installation invokes sudo.'
+            return 0 ;;
+    esac
+    if [[ $(uname -m) != aarch64 || ! -f /etc/arch-release ]]; then
+        echo 'Install Mac Steam Ultimate WIP requires Omarchy/Arch Linux ARM on an M3 Pro.' >&2
+        return 1
+    fi
+    revision=dc76dd21f93eb7ca49cce928f02b16b50f96f4be
+    archive_sha256=545eafa70e7c9c9d49e6fcc943d417059bc9d1e51bd8811c74aff7c74723ed0e
+    bootstrap_dir=$(mktemp -d)
+    trap 'rm -rf -- "$bootstrap_dir"' EXIT
+    echo 'Downloading Install Mac Steam Ultimate WIP (pinned installer)...'
+    curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
+        "https://codeload.github.com/erykwieliczko/omarchy-scripts/tar.gz/$revision" \
+        -o "$bootstrap_dir/installer.tar.gz"
+    printf '%s  %s\n' "$archive_sha256" "$bootstrap_dir/installer.tar.gz" | sha256sum --check --status || {
+        echo 'Installer archive checksum failed.' >&2
+        return 1
+    }
+    mkdir "$bootstrap_dir/repo"
+    tar -xzf "$bootstrap_dir/installer.tar.gz" --strip-components=1 \
+        --no-same-owner --no-same-permissions -C "$bootstrap_dir/repo"
+    if (( EUID == 0 )); then
+        bash "$bootstrap_dir/repo/mac-steam/install.sh" "$@"
+    elif [[ " $* " == *' --check '* ]]; then
+        bash "$bootstrap_dir/repo/mac-steam/install.sh" --user "$(id -un)" "$@"
+    else
+        echo 'Installing system dependencies and the pinned Steam/FEX graphics stack (sudo)...'
+        sudo -- bash "$bootstrap_dir/repo/mac-steam/install.sh" --user "$(id -un)" "$@"
+    fi
+}
+
+# Bash reads this whole function before invoking commands that might use stdin.
+main "$@"
