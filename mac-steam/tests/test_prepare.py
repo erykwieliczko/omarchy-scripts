@@ -81,6 +81,31 @@ class SteamUpdates(unittest.TestCase):
         (self.root / 'steamapps/libraryfolders.vdf').write_text('"path" "' + str(extra) + '"\n')
         self.assertEqual(prepare.libraries(self.root), [self.root, extra])
 
+    def test_native_driver_selection_is_personalized_and_restored_after_update(self):
+        template_path = self.tool / 'ConfigTemplate.json'
+        original = json.loads(template_path.read_text())
+        original['AppOverrides'] = {
+            'AoE2DE_s.exe': {'UserSetting': 'keep'},
+            'Other.exe': {'UserSetting': 'other'},
+        }
+        template_path.write_text(json.dumps(original))
+        for attempt in range(2):
+            prepare.prepare(self.root, {})
+            # Match Valve's personalization step, including a library path with spaces.
+            template = json.loads(template_path.read_text().replace('@FEX_COMPAT_TOOL@', str(self.tool)))
+            aoe = template['AppOverrides']['AoE2DE_s.exe']
+            self.assertEqual(aoe['UserSetting'], 'keep')
+            self.assertEqual(template['AppOverrides']['Other.exe']['UserSetting'], 'other')
+            self.assertIsInstance(aoe['HostEnv'], str)
+            name, value = aoe['HostEnv'].split('=', 1)
+            self.assertEqual(name, 'VK_DRIVER_FILES')
+            native_icd = Path(value)
+            driver = json.loads(native_icd.read_text())['ICD']
+            self.assertEqual(driver['library_path'], '/run/host/usr/lib/libvulkan_asahi.so')
+            if attempt == 0:
+                template_path.write_text(json.dumps(original))
+                native_icd.unlink()
+
 
 if __name__ == '__main__':
     unittest.main()

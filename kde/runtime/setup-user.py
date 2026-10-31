@@ -53,6 +53,13 @@ def main():
         subprocess.run(['kwriteconfig6', '--file', 'kwinrc', '--group', 'Wayland',
                         '--key', 'InputMethod', '--notify',
                         '/usr/share/applications/fcitx5-wayland-launcher.desktop'], check=True)
+    # Wine advertises Input=False and WM_TAKE_FOCUS, but AoE can leave X11
+    # focus on a hidden Steam popup. Let KWin focus this game directly.
+    update_config(config / 'kwinrulesrc', {'omarchy-aoe2-focus': {
+        'Description': 'AoE2: accept keyboard focus',
+        'wmclass': 'steam_app_813780', 'wmclassmatch': '1',
+        'wmclasscomplete': 'false', 'acceptfocus': 'true', 'acceptfocusrule': '2',
+    }})
     # Steam's CEF discovers the system Chromium extension, but its native host
     # spins inside muvm. Override only the Steam profile, preserving browser integration elsewhere.
     native_manifest = Path('/etc/chromium/native-messaging-hosts/org.kde.plasma.browser_integration.json')

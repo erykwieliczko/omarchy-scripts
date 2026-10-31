@@ -23,7 +23,7 @@ The stock ARM Mesa driver in the VM rejected the kernel's `features 0x3e` contra
 | Installer installation and repeat installation | PASS; desktop entry, private versions and rollback links created |
 | Public `curl .../install-mac-steam-ultimate-wip.sh \| bash -` | PASS on M3 Pro; pinned payload and a fresh FEX release-asset download verified |
 | Public bootstrap `--check` as the desktop user | PASS without sudo |
-| Preparer tests | 4 PASS: tool updates, deferred patching, settings preservation, library paths with spaces |
+| Preparer tests | 5 PASS: tool updates, deferred patching, settings preservation, library paths with spaces, native ARM ICD selection/restoration |
 | Shell syntax and ShellCheck 0.11.0 | PASS |
 
 Steam was shut down normally between installer runs. Test launches were muted. The desktop session was locked, so login readiness was checked from Steam's logs. No credentials were entered.
@@ -32,7 +32,11 @@ Steam was shut down normally between installer runs. Test launches were muted. T
 
 This exact FEX source plus the three local patches, and this Mesa base plus the five local patches, reached the AoE2 DE menu and gameplay before the machine was reinstalled. The previous full-resolution menu measurement was about 58 distinct presented frames per second with VSync on. It was not a verified 120 FPS result.
 
-The fresh machine has no signed-in Steam account or downloaded AoE2 game files. A new end-to-end game launch and the preparer's application of the Valve tool after its real download therefore remain for the signed-in session. The preparer's download/update behavior is covered by simulated Steam tool fixtures; FEX and the GPU regressions above ran on the real M3.
+After the owner signed in and downloaded AoE2, the new installation was tested end to end with game build `26272505`, Proton Experimental `11.0-20261027b` and DXVK `3.1.1-97-ga78a467cadb22be`. Its first launch failed at `CreateDXGIFactory`: the native ARM Vulkan bridge followed pressure-vessel's x86 graphics catalog and tried to load an x86 driver. An x86 helper in the same launch could still enumerate the GPU.
+
+The preparer now installs an ARM ICD manifest pointing at `/run/host/usr/lib/libvulkan_asahi.so` and selects it in the main FEX configuration's `AppOverrides` via `HostEnv`. A probe inside the game's actual pressure-vessel container changed from `vkCreateInstance=-9` to successful enumeration of **Apple M3 Pro**. The real game then created its **3024×1964** swapchain and reached gameplay; the owner confirmed it runs. The real downloaded Valve tool uses the private patched FEX (SHA-256 `cf4ee475f303bbda6539b333dda2c34ce2ca8146c1f5deb3f13975b7a8473798`). No new game FPS measurement is claimed.
+
+Keyboard input initially failed because X11 focus remained on a hidden Steam popup despite the game appearing active. The companion KDE installer now supplies an AoE2-only **Accept focus** rule. Simulated F10 opened the in-game menu, including after Alt-Tab, and the owner confirmed the physical keyboard works. The game and desktop did not need restarting for this input fix.
 
 The AoE-only Vulkan bridge is enabled using FEX's Steam application configuration and Arch library paths. Valve supplies the bridge binaries with its FEX tool after sign-in/game installation.
 

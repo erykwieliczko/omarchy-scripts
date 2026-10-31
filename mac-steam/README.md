@@ -28,11 +28,13 @@ Valve's FEX compatibility tool (Steam app `3127680`) supplies the Vulkan guest/h
 
 For AoE2 only (app `813780`, executable `AoE2DE_s.exe`), the preparer adds the Arch library paths missing from the thunk database and enables the native Vulkan bridge through FEX's Steam application configuration. It discovers additional Steam library paths, including paths containing spaces. Other games receive the shared FEX correctness fixes; their Vulkan bridge settings are left to Steam.
 
+AoE2's native bridge also needs an ARM driver manifest inside pressure-vessel. Its default graphics provider describes the x86 Mesa overlays, so an ARM loader following that catalog cannot load the driver. The preparer writes `FEX-Emu/asahi-native.json`, pointing at the private guest driver exported at `/run/host/usr/lib/libvulkan_asahi.so`. A `ConfigTemplate.json` application override selects it with FEX's `HostEnv` for `AoE2DE_s.exe`; Valve expands the tool-path placeholder into each game's configuration. The manifest and override are restored after tool updates. Driver selection is separate from the x86 overlays, which remain installed.
+
 No account credentials or game files are bundled. First use requires Steam sign-in and the normal game/runtime downloads. The installer leaves resolution and game graphics settings to the player.
 
 ## Validation
 
-The M3 Pro restoration exercised the 4K VM, private GPU driver, x86 Vulkan placed-mapping guard, and the patched FEX signal/SMC regressions. Detailed results are in [VALIDATION.md](VALIDATION.md). AoE2 reached the menu and gameplay with this FEX/Mesa patch set in the preceding installation; the fresh-machine validation distinguishes that history from tests performed after reinstalling.
+The M3 Pro restoration exercised the 4K VM, private GPU driver, x86 Vulkan placed-mapping guard, and the patched FEX signal/SMC regressions. After sign-in and the normal downloads, the real Valve tool was patched and AoE2 reached gameplay at 3024×1964. The owner confirmed both launch and keyboard input (with the companion KDE focus fix). Detailed results and the startup driver-discovery fix are in [VALIDATION.md](VALIDATION.md). No new game FPS measurement is claimed.
 
 The same binary release also passed the 4K VM, FEX signal/SMC regressions, placed-mapping guard and 120-frame native Vulkan rendering check on an M1 MacBook Air. M1 validation is recorded separately from the M3 game result.
 

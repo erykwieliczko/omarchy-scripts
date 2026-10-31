@@ -92,9 +92,26 @@ def prepare(root, seen):
             seen[str(tool)] = tuple((p.stat().st_ino, p.stat().st_size, p.stat().st_mtime_ns)
                                     for p in binaries)
         if not tool_in_use(tool):
-            merge_json(tool / 'ConfigTemplate.json', {'Config': {
+            # pressure-vessel's main graphics provider contains x86 Mesa.
+            # Point only AoE's native Vulkan thunk at the ARM host driver.
+            # Core config overrides belong in ConfigTemplate: loading them
+            # from the executable's late ThunksDB profile is insufficient.
+            native_icd = tool / 'asahi-native.json'
+            icd_data = (json.dumps({
+                'file_format_version': '1.0.1',
+                'ICD': {'api_version': '1.4.363', 'library_arch': '64',
+                        'library_path': '/run/host/usr/lib/libvulkan_asahi.so'},
+            }, indent=2) + '\n').encode()
+            if not native_icd.exists() or native_icd.read_bytes() != icd_data:
+                atomic_bytes(native_icd, icd_data)
+            template_path = tool / 'ConfigTemplate.json'
+            template = json.loads(template_path.read_text())
+            aoe_override = dict(template.get('AppOverrides', {}).get('AoE2DE_s.exe', {}))
+            aoe_override['HostEnv'] = 'VK_DRIVER_FILES=@FEX_COMPAT_TOOL@/asahi-native.json'
+            merge_json(template_path, {'Config': {
                 'NeedsSeccomp': '1', 'SMCHotPageFaults': '32', 'ProfileStats': '0',
-                'DiskCache': '0', 'X87ReducedPrecision': '1'}})
+                'DiskCache': '0', 'X87ReducedPrecision': '1'},
+                'AppOverrides': {'AoE2DE_s.exe': aoe_override}})
 
     # Prepare the default library in advance; apply to other libraries once AoE exists there.
     overlays = ['/usr/lib/libvulkan.so', '/usr/lib/libvulkan.so.1', '/lib/libvulkan.so.1',
