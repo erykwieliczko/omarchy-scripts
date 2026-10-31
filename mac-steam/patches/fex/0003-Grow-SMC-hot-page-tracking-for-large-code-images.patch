@@ -1,0 +1,42 @@
+diff --git a/Source/Tools/LinuxEmulation/LinuxSyscalls/SMCHotPages.h b/Source/Tools/LinuxEmulation/LinuxSyscalls/SMCHotPages.h
+index d46b7eafc..96343291b 100644
+--- a/Source/Tools/LinuxEmulation/LinuxSyscalls/SMCHotPages.h
++++ b/Source/Tools/LinuxEmulation/LinuxSyscalls/SMCHotPages.h
+@@ -11,6 +11,7 @@ $end_info$
+ #include <atomic>
+ #include <cstddef>
+ #include <cstdint>
++#include <unistd.h>
+ 
+ namespace FEX::HLE {
+ 
+@@ -79,8 +80,8 @@ public:
+   }
+ 
+ private:
+-  static constexpr size_t CounterSlots = 4096;
+-  static constexpr size_t HotSlots = 2048;
++  static constexpr size_t CounterSlots = 65536;
++  static constexpr size_t HotSlots = 65536;
+   static constexpr unsigned CountBits = 20;
+   static constexpr uint64_t CountMask = (1ULL << CountBits) - 1;
+   static_assert((CounterSlots & (CounterSlots - 1)) == 0 && (HotSlots & (HotSlots - 1)) == 0);
+@@ -92,6 +93,10 @@ private:
+   // Open-addressed insert. Gives up (the page stays on plain write protection) when the set is 3/4 full.
+   bool MakeHot(uint64_t Page) {
+     if (HotCount.load(std::memory_order_relaxed) >= HotSlots / 4 * 3) {
++      if (!LimitReported.exchange(true, std::memory_order_relaxed)) {
++        constexpr char Message[] = "FEX: SMC hot-page table capacity reached\n";
++        write(STDERR_FILENO, Message, sizeof(Message) - 1);
++      }
+       return false;
+     }
+ 
+@@ -113,6 +118,7 @@ private:
+   std::array<std::atomic<uint64_t>, CounterSlots> Counters {};
+   std::array<std::atomic<uint64_t>, HotSlots> Hot {};
+   std::atomic<uint32_t> HotCount {};
++  std::atomic<bool> LimitReported {};
+ };
+ 
+ } // namespace FEX::HLE

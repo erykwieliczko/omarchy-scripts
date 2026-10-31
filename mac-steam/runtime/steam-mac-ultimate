@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+prefix=/opt/mac-steam-ultimate/current
+if (( EUID == 0 )); then
+    echo 'Start Steam from your desktop account, not root.' >&2
+    exit 1
+fi
+if [[ ${1:-} == --prepare ]]; then
+    exec python3 "$prefix/runtime/prepare.py"
+fi
+root=$(readlink -e "$HOME/.steam/steam" || :)
+root=${root:-${XDG_DATA_HOME:-$HOME/.local/share}/Steam}
+mkdir -p "$HOME/.steam" "${XDG_CACHE_HOME:-$HOME/.cache}/mac-steam-ultimate"
+for link in sdk32:linux32 sdk64:linux64 bin32:ubuntu12_32 bin64:ubuntu12_64; do
+    dest=$HOME/.steam/${link%%:*}
+    if [[ -e $dest && ! -L $dest ]]; then
+        echo "Cannot replace existing directory: $dest" >&2
+        exit 1
+    fi
+    ln -sfn "$root/${link#*:}" "$dest"
+done
+python3 "$prefix/runtime/prepare.py"
+export PATH="$prefix/fex/bin:$PATH"
+exec muvm --emu=fex -e "PATH=$PATH" -x "$prefix/runtime/guest-setup" \
+    --fex-image /usr/share/fex-emu/RootFS/default.erofs \
+    --fex-image "$prefix/overlays/mesa-i386.erofs" \
+    --fex-image "$prefix/overlays/mesa-x86_64.erofs" \
+    -- "$prefix/runtime/guest-steam" "$@"

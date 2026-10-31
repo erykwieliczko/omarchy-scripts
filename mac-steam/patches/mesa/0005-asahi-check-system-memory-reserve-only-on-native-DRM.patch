@@ -1,0 +1,17 @@
+diff --git a/src/asahi/vulkan/hk_device_memory.c b/src/asahi/vulkan/hk_device_memory.c
+index 0de9311..50ef550 100644
+--- a/src/asahi/vulkan/hk_device_memory.c
++++ b/src/asahi/vulkan/hk_device_memory.c
+@@ -51,6 +51,12 @@ hk_system_memory_fits_now(uint64_t size)
+ static bool
+ hk_system_memory_fits(struct hk_device *dev, uint64_t size)
+ {
++   /* Virtio BOs are backed by host memory. Guest MemAvailable describes a
++    * different memory pool (and can shrink under ballooning), so it cannot
++    * enforce a host reserve. Keep the Vulkan heap limit on both backends. */
++   if (dev->dev.is_virtio)
++      return true;
++
+    if (size < HK_MEMORY_CHECK_MIN)
+       return true;
+ 

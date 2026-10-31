@@ -1,0 +1,85 @@
+diff --git a/FEXCore/Source/Interface/IR/IREmitter.cpp b/FEXCore/Source/Interface/IR/IREmitter.cpp
+index 40b02b33d..98f089d9a 100644
+--- a/FEXCore/Source/Interface/IR/IREmitter.cpp
++++ b/FEXCore/Source/Interface/IR/IREmitter.cpp
+@@ -95,6 +95,7 @@ void IREmitter::ResetWorkingList() {
+   InvalidNode = reinterpret_cast<Ref>(DualListData.ListAllocate(sizeof(OrderedNode)));
+   memset(InvalidNode, 0, sizeof(OrderedNode));
+   CurrentCodeBlock = nullptr;
++  LastCodeBlock = nullptr;
+ }
+ 
+ void IREmitter::ReplaceAllUsesWithRange(Ref Node, Ref NewNode, AllNodesIterator Begin, AllNodesIterator End) {
+@@ -148,11 +149,17 @@ void IREmitter::RemoveArgUses(Ref Node) {
+ }
+ 
+ void IREmitter::RemovePostRA(Ref Node) {
++  if (Node == LastCodeBlock) {
++    LastCodeBlock = nullptr;
++  }
+   Node->Unlink(DualListData.ListBegin());
+ }
+ 
+ void IREmitter::Remove(Ref Node) {
+   RemoveArgUses(Node);
++  if (Node == LastCodeBlock) {
++    LastCodeBlock = nullptr;
++  }
+ 
+   Node->Unlink(DualListData.ListBegin());
+ }
+@@ -167,15 +174,15 @@ IREmitter::IRPair<IROp_CodeBlock> IREmitter::CreateNewCodeBlockAfter(Ref insertA
+   } else {
+     LOGMAN_THROW_A_FMT(CurrentCodeBlock != nullptr, "CurrentCodeBlock must not be null here");
+ 
+-    // Find last block
+-    auto LastBlock = CurrentCodeBlock;
+-
+-    while (LastBlock->Header.Next.GetNode(DualListData.ListBegin()) != InvalidNode) {
+-      LastBlock = LastBlock->Header.Next.GetNode(DualListData.ListBegin());
++    // The cache can be empty for a single initial block, or after removal.
++    if (!LastCodeBlock) {
++      LastCodeBlock = CurrentCodeBlock;
++      while (LastCodeBlock->Header.Next.GetNode(DualListData.ListBegin()) != InvalidNode) {
++        LastCodeBlock = LastCodeBlock->Header.Next.GetNode(DualListData.ListBegin());
++      }
+     }
+ 
+-    // Append it after the last block
+-    LinkCodeBlocks(LastBlock, CodeNode);
++    LinkCodeBlocks(LastCodeBlock, CodeNode);
+   }
+ 
+   SetWriteCursor(OldCursor);
+diff --git a/FEXCore/Source/Interface/IR/IREmitter.h b/FEXCore/Source/Interface/IR/IREmitter.h
+index aba0c1f5f..c4bf27b54 100644
+--- a/FEXCore/Source/Interface/IR/IREmitter.h
++++ b/FEXCore/Source/Interface/IR/IREmitter.h
+@@ -394,6 +394,7 @@ public:
+     DualListData.CopyData(rhs.DualListData);
+     InvalidNode = rhs.InvalidNode->Wrapped(rhs.DualListData.ListBegin()).GetNode(DualListData.ListBegin());
+     CurrentWriteCursor = rhs.CurrentWriteCursor;
++    LastCodeBlock = rhs.LastCodeBlock ? rhs.LastCodeBlock->Wrapped(rhs.DualListData.ListBegin()).GetNode(DualListData.ListBegin()) : nullptr;
+     CodeBlocks = rhs.CodeBlocks;
+     for (auto& CodeBlock : CodeBlocks) {
+       CodeBlock = CodeBlock->Wrapped(rhs.DualListData.ListBegin()).GetNode(DualListData.ListBegin());
+@@ -466,6 +467,9 @@ public:
+     LOGMAN_THROW_A_FMT(CurrentIROp->Header.Op == IROps::OP_CODEBLOCK, "Invalid");
+ #endif
+ 
++    if (CodeNode->Header.Next.GetNode(DualListData.ListBegin()) == InvalidNode) {
++      LastCodeBlock = Next;
++    }
+     CodeNode->append(DualListData.ListBegin(), Next);
+   }
+ 
+@@ -521,6 +525,9 @@ protected:
+ 
+   Ref InvalidNode {};
+   Ref CurrentCodeBlock {};
++  // Hot-page validation adds two blocks per guest instruction. Cache the list
++  // tail so appending those failure paths does not repeatedly scan the list.
++  Ref LastCodeBlock {};
+   fextl::vector<Ref> CodeBlocks;
+   uint64_t Entry {};
+   bool SupportsTSOImm9 {};

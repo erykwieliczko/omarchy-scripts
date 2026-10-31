@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Runs as root ONLY in muvm. Bind mounts affect this VM, never the host desktop.
+set -euo pipefail
+prefix=/opt/mac-steam-ultimate/current
+[[ $(getconf PAGESIZE) == 4096 ]] || { echo 'Expected a 4K muvm guest' >&2; exit 1; }
+for name in libvulkan_asahi.so libgallium-26.3.0-devel.so libEGL_mesa.so.0 libGLX_mesa.so.0 libgbm.so.1 dri/libdril_dri.so gbm/dri_gbm.so; do
+    source=$(readlink -e "$prefix/mesa-aarch64/usr/lib/$name")
+    target=$(readlink -e "/usr/lib/$name")
+    mount --bind "$source" "$target"
+done
+# muvm registers binfmt before applying its per-command environment. Re-register
+# in the guest so native Steam's x86 helpers use the pinned FEX too.
+for name in FEX-x86 FEX-x86_64; do
+    if [[ -e /proc/sys/fs/binfmt_misc/$name ]]; then
+        printf '%s' -1 > "/proc/sys/fs/binfmt_misc/$name"
+    fi
+done
+for config in /usr/lib/binfmt.d/FEX*.conf; do
+    while IFS= read -r rule; do
+        [[ $rule == :FEX-* ]] || continue
+        printf '%s\n' "${rule/\/usr\/bin\/FEX/$prefix\/fex\/bin\/FEX}" > /proc/sys/fs/binfmt_misc/register
+    done < "$config"
+done

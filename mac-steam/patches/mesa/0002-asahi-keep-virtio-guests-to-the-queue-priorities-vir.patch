@@ -1,0 +1,43 @@
+From 3621d36fb7224c681ac24726c8aab0a9d6f2aa29 Mon Sep 17 00:00:00 2001
+From: Eryk Wieliczko <eryk@wieliczko.ninja>
+Date: Fri, 30 Oct 2026 03:57:23 +0100
+Subject: [PATCH 2/3] asahi: keep virtio guests to the queue priorities virgl
+ accepts
+
+virglrenderer allows command queues up to MEDIUM priority. Anything
+higher fails the whole guest context instead of the ioctl, so the
+guest waits forever for a reply. GL tries HIGH for prioritized contexts
+and falls back to MEDIUM when the kernel refuses; under virtio it hung
+in eglCreateContext instead.
+
+Refuse priorities above MEDIUM before forwarding, as a kernel refuses
+an unprivileged caller, so the existing fallbacks apply.
+
+Assisted-by: Claude:claude-opus-5-5
+Signed-off-by: Eryk Wieliczko <eryk@wieliczko.ninja>
+---
+ src/asahi/lib/agx_device.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/src/asahi/lib/agx_device.c b/src/asahi/lib/agx_device.c
+index 5cb41d21..0511b1c1 100644
+--- a/src/asahi/lib/agx_device.c
++++ b/src/asahi/lib/agx_device.c
+@@ -1552,6 +1552,14 @@ uint32_t
+ agx_create_command_queue_with_render_scs(struct agx_device *dev,
+    enum drm_asahi_priority priority, const uint64_t layouts[2])
+ {
++   /* virglrenderer allows at most MEDIUM and drops the whole guest context
++    * on anything higher instead of failing the ioctl. Refuse it here as a
++    * kernel refuses an unprivileged caller, so callers fall back. */
++   if (dev->is_virtio && priority > DRM_ASAHI_PRIORITY_MEDIUM) {
++      errno = EPERM;
++      return UINT32_MAX;
++   }
++
+    if (dev->debug & AGX_DBG_1QUEUE) {
+       // Abuse this lock for this, it's debug only anyway
+       simple_mtx_lock(&dev->vma_lock);
+-- 
+2.56.0
+

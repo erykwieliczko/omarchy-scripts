@@ -1,0 +1,101 @@
+From ad252a048d5b1e244162eb5e093a654838d1a246 Mon Sep 17 00:00:00 2001
+From: Eryk Wieliczko <eryk@wieliczko.ninja>
+Date: Fri, 30 Oct 2026 03:46:57 +0100
+Subject: [PATCH] asahi: speak the retained G15 wire from virtio guests too
+
+The G15 wire translation only ran for direct DRM clients. A guest in a
+microVM (muvm, for Steam/FEX) on the same kernel gets the very same
+GET_PARAMS reply, feature word 0x3e, because virglrenderer forwards it
+verbatim, and then fails the native AGX3 contract check:
+
+  Incompatible native AGX3 kernel contract (features 0x3e)
+
+so it has no GPU. virglrenderer forwards the submit command buffer
+verbatim as well, so the guest can use the same conversion as a native
+client: normalize the features at open and pack the commands with
+agx_g15_wire_pack() before forwarding them.
+
+Assisted-by: Claude:claude-opus-5-5
+Signed-off-by: Eryk Wieliczko <eryk@wieliczko.ninja>
+---
+ src/asahi/lib/agx_device.c        |  5 +++--
+ src/asahi/lib/agx_device_virtio.c | 18 +++++++++++++++++-
+ src/asahi/lib/agx_g15_wire.c      |  3 ++-
+ 3 files changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/src/asahi/lib/agx_device.c b/src/asahi/lib/agx_device.c
+index b24942a8..5cb41d21 100644
+--- a/src/asahi/lib/agx_device.c
++++ b/src/asahi/lib/agx_device.c
+@@ -933,8 +933,9 @@ agx_open_device(void *memctx, struct agx_device *dev)
+ 
+    uint64_t normalized_features;
+    dev->g15_legacy_wire = false;
+-   if (!dev->is_virtio &&
+-       agx_g15_wire_features(&dev->params, &normalized_features)) {
++   /* virglrenderer passes GET_PARAMS and command buffers through verbatim,
++    * so a guest on this kernel speaks the same wire as a native client. */
++   if (agx_g15_wire_features(&dev->params, &normalized_features)) {
+       dev->g15_legacy_wire = true;
+       dev->params.features = normalized_features;
+    }
+diff --git a/src/asahi/lib/agx_device_virtio.c b/src/asahi/lib/agx_device_virtio.c
+index 0072120b..1d87e110 100644
+--- a/src/asahi/lib/agx_device_virtio.c
++++ b/src/asahi/lib/agx_device_virtio.c
+@@ -5,6 +5,7 @@
+ 
+ #include "agx_device_virtio.h"
+ 
++#include <errno.h>
+ #include <inttypes.h>
+ #include <sys/mman.h>
+ 
+@@ -13,6 +14,7 @@
+ #include "vdrm.h"
+ 
+ #include "asahi_proto.h"
++#include "agx_g15_wire.h"
+ 
+ /**
+  * Helper for simple pass-thru ioctls
+@@ -247,7 +249,21 @@ agx_virtio_submit(struct agx_device *dev, struct drm_asahi_submit *submit,
+ 
+    char *ptr = (char *)&req->payload;
+ 
+-   memcpy(ptr, (void *)(uintptr_t)submit->cmdbuf, req->cmdbuf_size);
++   if (dev->g15_legacy_wire) {
++      /* The G15 wire is never longer than the canonical stream. */
++      size_t size;
++      if (!agx_g15_wire_pack((void *)(uintptr_t)submit->cmdbuf,
++                             submit->cmdbuf_size, ptr, submit->cmdbuf_size,
++                             &size)) {
++         free(req);
++         errno = EINVAL;
++         return -1;
++      }
++      req->cmdbuf_size = size;
++      req_len -= submit->cmdbuf_size - size;
++   } else {
++      memcpy(ptr, (void *)(uintptr_t)submit->cmdbuf, req->cmdbuf_size);
++   }
+    ptr += req->cmdbuf_size;
+ 
+    memcpy(ptr, virt->extres, extres_size);
+diff --git a/src/asahi/lib/agx_g15_wire.c b/src/asahi/lib/agx_g15_wire.c
+index 496bcea2..40f227dc 100644
+--- a/src/asahi/lib/agx_g15_wire.c
++++ b/src/asahi/lib/agx_g15_wire.c
+@@ -8,7 +8,8 @@
+  * Its render/compute prefixes end at 256/64, while canonical packets insert
+  * eight timestamp-copy records at those offsets. All remaining fields move
+  * by 64 bytes. Never reinterpret feature bits without also converting every
+- * hardware command. Air/G17 and virtio continue using the canonical wire. */
++ * hardware command. Air/G17 continue using the canonical wire; virtio guests
++ * on a G15 host convert before forwarding, as native clients do. */
+ _Static_assert(sizeof(struct drm_asahi_cmd_header) == 8, "command header");
+ _Static_assert(sizeof(struct drm_asahi_cmd_render) == 320, "render base");
+ _Static_assert(offsetof(struct drm_asahi_cmd_render, ts_frag_end_copies) == 256,
+-- 
+2.56.0
+

@@ -1,0 +1,41 @@
+From f7407fa03d55588618de529f28fb02a8f72ccb89 Mon Sep 17 00:00:00 2001
+From: Eryk Wieliczko <eryk@wieliczko.ninja>
+Date: Fri, 30 Oct 2026 03:57:23 +0100
+Subject: [PATCH 3/3] asahi: hide VM status from virtio guests
+
+The Vulkan driver checks the VM status after each wait with a
+GET_PARAMS ioctl straight on the device fd. In a virtio guest that fd
+is virtio-gpu, which has no such ioctl, so the very first fence wait
+reported VK_ERROR_DEVICE_LOST.
+
+Like the queue-limits query, these groups cannot be forwarded: drop
+VM_STATUS and VM_STATUS_MIRROR from the features of virtio guests, so
+the driver does not rely on them.
+
+Assisted-by: Claude:claude-opus-5-5
+Signed-off-by: Eryk Wieliczko <eryk@wieliczko.ninja>
+---
+ src/asahi/lib/agx_device.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/src/asahi/lib/agx_device.c b/src/asahi/lib/agx_device.c
+index 0511b1c1..64f3287a 100644
+--- a/src/asahi/lib/agx_device.c
++++ b/src/asahi/lib/agx_device.c
+@@ -940,6 +940,13 @@ agx_open_device(void *memctx, struct agx_device *dev)
+       dev->params.features = normalized_features;
+    }
+ 
++   /* VM status is read with a direct GET_PARAMS ioctl on the device fd, which
++    * the virtio-gpu fd of a guest does not implement, so every check would
++    * report a lost device. */
++   if (dev->is_virtio)
++      dev->params.features &= ~(DRM_ASAHI_FEATURE_VM_STATUS |
++                                DRM_ASAHI_FEATURE_VM_STATUS_MIRROR);
++
+    /*
+     * Recognition, shader codegen, descriptors and the command stream are
+     * independently versioned. A part is usable only once every required axis
+-- 
+2.56.0
+
