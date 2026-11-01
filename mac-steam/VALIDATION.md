@@ -43,6 +43,14 @@ are preserved. Four integration regressions cover deferred downloads, idempotenc
 custom settings/backups, explicit choices, symlinks and external libraries.
 All 29 Steam tests pass. The M1 has not been tested with this input setup.
 
+Published payload: `fca4b5ef5cec607e058f26480b5c59ce8f901d1c`; Steam bootstrap
+commit `c7252fd` pins archive SHA-256
+`e1f8831f7a3a90bcdde43f7d3f5a7b6edef5c5b84a5b1d3cde2f55b8bb0704c8`.
+The new preparer completed with exit zero in the real running M3 VM, and the
+installed preparer's hash matches the published source. The anonymous public
+bootstrap downloaded and verified the pinned archive and passed `--check` on
+M3. The full installer was not rerun while the owner's game was active.
+
 ## Temporary CPU performance policy — 2026-11-01 late morning
 
 After the FEX server lifetime repair below, the M3 still took 114–119 seconds
