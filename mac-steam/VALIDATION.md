@@ -54,6 +54,15 @@ KDE locked during the unattended run, so these events measure game presentation,
 not visibility through the lock screen. Normal unlock showed the rendered menu.
 That launch subsequently entered a new skirmish; F10 opened the in-game menu.
 
+The repair is published in payload `2b39d57c9535e4db4512f3112102f46f999aa710`;
+bootstrap commit `0098743` pins its archive SHA-256
+`205b98bedd91ae686a82a5d2efa46c320b5182716f3b29e6755f49863afa19db`.
+The anonymous public `curl | bash --user e` installer completed on the M3 and
+installed the identical lifetime launcher. After restarting Steam, a repeat
+launch reached focused full-size frames in **118.9 seconds**, with the desktop
+unlocked. Spectacle captured the actual intro animation. Normal exit of the
+preceding candidate game and Steam had left no server/manager processes behind.
+
 ## Clean-install packaging update — 2026-11-01
 
 The v0.2.0 installer was exercised on the existing M3 installation, then the
