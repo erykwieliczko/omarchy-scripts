@@ -32,6 +32,18 @@ clusters to their original `schedutil` governors. A subsequent `--prepare` did
 not activate GameMode. A separate finite native-client request also restored
 the governors after exit.
 
+Published payload: `2a41e2b6c6f5c2308bc177529c040b1f18c200f0`. Bootstrap
+commit `6aa9d38` pins archive SHA-256
+`ff6c6c701ed07d9f10dbe9a34be90549a2854e4ac21683683f2c3d24deda778c`.
+The anonymous public curl installer completed on the M3. Before running it,
+the account's new group membership was removed deliberately; the installer
+restored it. Installed launcher hashes match the tested source. A fresh Steam
+VM from that installation reached the same full-size marker in **78.120 seconds**;
+Spectacle captured the actual intro animation. The two GameMode launches thus
+measured 78–79 seconds, compared with the preceding public install's 118.867.
+The temporary sleep inhibitor was stopped after measurement. This update has
+not been installed or tested on the currently offline M1.
+
 ## Fresh Omarchy reinstall — 2026-11-01 morning
 
 The owner reinstalled both Macs. The public KDE, keyboard and Steam curl

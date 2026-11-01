@@ -30,8 +30,9 @@ Files live under `/opt/mac-steam-ultimate/releases/`; `current` selects the acti
 The installer also installs native ARM GameMode and adds the desktop account to
 its standard `gamemode` group. The host launcher holds a GameMode request while
 the Steam VM runs, allowing the CPU's performance governor during gaming. This
-uses more power while Steam is open; GameMode restores the previous governors
-after the VM exits. User GameMode settings remain in effect. A native Python
+uses more power while Steam is open. The request ends when the VM exits;
+GameMode restores the previous governors when its last client exits.
+User GameMode settings remain in effect. A native Python
 client owns the request and waits for muvm; it does not inject `LD_PRELOAD`
 libraries into the VM, FEX or Proton. Unavailable GameMode produces a warning
 and Steam still starts. `--prepare` does not request GameMode.
