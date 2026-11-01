@@ -1,0 +1,43 @@
+Subject: drm/apple: avoid legacy framebuffer retirement for 14.7 native panel swaps
+
+The T6030 14.7 DCPLink presenter retains active_fb itself. Its successful
+swaps do not arm or retire the generic swap-id list, so queuing displaced
+buffers there leaks references and eventually prevents display imports.
+Keep that list for the asynchronous legacy and external presenters.
+
+--- a/drivers/gpu/drm/apple/plane.c
++++ b/drivers/gpu/drm/apple/plane.c
+@@ -5,7 +5,7 @@
+ 
+ #include "plane.h"
+ 
+-#include "dcp-internal.h"
++#include "dcp.h"
+ #include "iomfb_internal.h"
+ 
+ #include "iomfb_plane.h"
+@@ -527,6 +527,7 @@
+ 				  struct drm_plane_state *state)
+ {
+ 	struct drm_plane_state *old;
++	struct apple_dcp *dcp;
+ 	struct dcp_fb_reference *entry;
+ 	int ret;
+ 
+@@ -536,6 +537,16 @@
+ 
+ 	old = drm_atomic_get_old_plane_state(state->state, plane);
+ 	if (!old || !old->crtc || !old->fb || old->fb == state->fb)
++		return 0;
++
++	/*
++	 * The synchronous native panel path holds active_fb until a successful
++	 * swap replaces it, and pins both buffers on failure. It does not use
++	 * the legacy swap-id retirement list: entries queued there would never
++	 * be armed or released, pinning every displaced buffer indefinitely.
++	 */
++	dcp = platform_get_drvdata(to_apple_crtc(old->crtc)->dcp);
++	if (dcp_is_v14_7_panel(dcp))
+ 		return 0;
+ 
+ 	entry = kzalloc_obj(*entry);

@@ -1,5 +1,39 @@
 # Validation — 2026-10-31
 
+## Clean-install packaging update — 2026-11-01
+
+The v0.2.0 installer was exercised on the existing M3 installation, then the
+machine was rebooted through its automatically selected kernel entry. This is
+an upgrade/reboot test; the owner's upcoming OS reinstall is a separate test.
+
+- Package `linux-aurora-dsc 7.2.11.aurora11-3.1` installed through pacman and the
+  normal Omarchy mkinitcpio/Limine/m1n1 hooks. All 2,449 package files are present;
+  content and ownership checks pass. Only timestamps of 11 regenerated depmod
+  indexes differ from the package metadata.
+- The generated UKI was extracted and its display-module SHA-256 checked before
+  boot selection: `9029fe79689441fb0ee9ddce60dc6f74903b5fb9f95c58fc8dbe4d4ea24c2328`.
+- Boot ID changed from `878fdfb6-1175-4e8c-a088-0a21eea82165` to
+  `85a499a2-f5fd-4dd1-90ba-295972ad7403`; kernel release remains
+  `7.2.11-11-dsc3-ARCH`. Loaded module build-ID notes match the qualified module.
+- Plasma Login Manager displayed the normal password login. After ordinary
+  authentication, KDE Plasma started. No autologin configuration was added.
+- KVM `halt_poll_ns=0` and the panel timestamp value `Y` survived reboot without
+  manual activation. The conditional panel service completed successfully.
+- The complete corresponding kernel source bundle contains all base source and
+  all six patches. Its offline recipe's 12 input checksums match; all six patches
+  apply cleanly. The actual-source retirement regression passes 100,000 native
+  swaps plus legacy, external, error and inactive-plane cases; the timestamp
+  policy regression passes board/external/default/opt-in cases.
+- 13 Steam/preparer/host-setup tests and five KDE integration tests pass. The host
+  tests check fresh root arguments, retained fallback entries, absent stock-driver
+  parameters, idempotence, and refusal to select an unverified module/boot image.
+  ShellCheck passes for the updated installer, bootstraps and new build scripts.
+
+The qualified FEX/Mesa/Wine baseline is retained. The private FEX exact-validation
+candidate, Mesa compression flag, presentation hooks and profiling are excluded
+from this release. Long-session OOM investigation is still outstanding; neither
+extended stability nor a 120 FPS game result is claimed.
+
 Hardware: Apple M3 Pro, 14-inch MacBook Pro (`apple,j514s`, `apple,t6030`). Host: reinstalled Omarchy/Arch ARM, kernel `7.2.11-11-dsc3-ARCH`, 16384-byte pages. VM: muvm 0.7.0, 4096-byte pages.
 
 The stock ARM Mesa driver in the VM rejected the kernel's `features 0x3e` contract. The patched private driver enumerated **Apple M3 Pro (G15S B1)**, Vulkan 1.4.363, Mesa base `672657e05e`. Guest binfmt showed `/opt/mac-steam-ultimate/current/fex/bin/FEX` as the x86-64 interpreter.

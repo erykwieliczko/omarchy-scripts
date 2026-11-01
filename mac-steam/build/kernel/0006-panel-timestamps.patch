@@ -1,0 +1,25 @@
+--- a/drivers/gpu/drm/apple/iomfb_v14_7.c
++++ b/drivers/gpu/drm/apple/iomfb_v14_7.c
+@@ -105,6 +105,12 @@
+ 	.promotion = true,
+ 	.panel_nits = true,
+ };
++
++/* Private pacing experiment; opt in live after booting the normal path. */
++static bool t6030_swap_timestamps;
++module_param(t6030_swap_timestamps, bool, 0644);
++MODULE_PARM_DESC(t6030_swap_timestamps,
++		 "Use the existing v14 swap timestamp encoding on the internal T6030 panel");
+ 
+ /*
+  * J613 (MacBook Air 13", M3): a 2560x1664 panel at 60 Hz only, with 64 notch
+@@ -1700,7 +1706,8 @@
+ 
+ bool dcp_v14_board_stamps_swaps(const struct dcp_v14_board *board, bool external)
+ {
+-	return board && !external && board->swap_timestamps;
++	return board && !external && (board->swap_timestamps ||
++		(board == &dcp_v14_board_t6030 && READ_ONCE(t6030_swap_timestamps)));
+ }
+ 
+ bool iomfb_v14_7_base_edid(const struct apple_dcp *dcp)

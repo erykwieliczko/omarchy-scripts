@@ -2,7 +2,7 @@
 # Install Mac Steam Ultimate WIP — M1 / M3 Pro, Omarchy Apple Silicon.
 set -euo pipefail
 project=$(cd -- "$(dirname -- "$0")" && pwd)
-release=mac-steam-ultimate-wip-v0.1.0
+release=mac-steam-ultimate-wip-v0.2.0
 base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/$release
 target_user=${SUDO_USER:-}
 cache=/var/cache/mac-steam-ultimate
@@ -40,6 +40,14 @@ uid=$(id -u "$target_user")
 user_home=$(getent passwd "$target_user" | cut -d: -f6)
 [[ -d $user_home && $user_home == /* ]] || die 'The desktop home directory does not exist.'
 printf 'Target: %s (%s), kernel %s\n' "$target_user" "$user_home" "$(uname -r)"
+m3=0
+if tr '\0' '\n' < /proc/device-tree/compatible | grep -qx apple,t6030; then
+    tr '\0' '\n' < /proc/device-tree/compatible | grep -qx apple,j514s ||
+        die 'The packaged M3 kernel is qualified on the 14-inch M3 Pro (J514s).'
+    m3=1
+    [[ -f /etc/default/limine && -f /var/lib/omarchy/limine.enabled ]] ||
+        die 'This M3 installation needs the normal Omarchy Limine boot setup.'
+fi
 if (( check_only )); then
     echo 'Hardware and repository checks passed.'
     exit 0
@@ -59,6 +67,7 @@ pacman -S --needed --noconfirm omarchy/steam muvm FEX-Emu fex-emu-rootfs-arch \
 mkdir -p "$cache" /opt/mac-steam-ultimate/releases
 while read -r hash file; do
     [[ $file && $hash ]] || continue
+    [[ $file != linux-aurora-dsc-* || $m3 == 1 ]] || continue
     if ! printf '%s  %s\n' "$hash" "$cache/$file" | sha256sum --check --status 2>/dev/null; then
         curl --fail --location --retry 3 --proto '=https' --tlsv1.2 "$base/$file" -o "$cache/$file.part"
         printf '%s  %s\n' "$hash" "$cache/$file.part" | sha256sum --check --status || die "Checksum mismatch: $file"
@@ -94,6 +103,10 @@ tar --zstd -xf "$cache/mesa-672657e-r1-x86.tar.zst" -C "$stage/x86-stage"
 tar --zstd -xf "$cache/wine-focus-7b3ceaf-r1-x86_64.tar.zst" -C "$stage/wine-focus"
 mkdir -p "$stage/sources/wine-focus"
 tar --zstd -xf "$cache/wine-focus-7b3ceaf-r1-source.tar.zst" -C "$stage/sources/wine-focus"
+if (( m3 )); then
+    mkdir -p "$stage/sources/kernel"
+    cp "$cache/linux-aurora-dsc-7.2.11.aurora11-3.1-source.tar.zst" "$stage/sources/kernel/"
+fi
 bash "$project/build/overlays.sh" "$stage/x86-stage" "$stage/overlays" > "$cache/overlays.log" 2>&1
 rm -rf "$stage/x86-stage"
 cp -a "$project/runtime/." "$stage/runtime/"
@@ -107,6 +120,21 @@ done
 if ldd "$stage/mesa-aarch64/usr/lib/libvulkan_asahi.so" | grep -q 'not found'; then
     die 'Private Mesa has an unresolved system dependency.'
 fi
+if (( m3 )); then
+    python3 "$stage/runtime/host-setup.py" tune
+    package=$cache/linux-aurora-dsc-7.2.11.aurora11-3.1-aarch64.pkg.tar.zst
+    module=/usr/lib/modules/7.2.11-11-dsc3-ARCH/kernel/drivers/gpu/drm/apple/appledrm.ko
+    module_sha=9029fe79689441fb0ee9ddce60dc6f74903b5fb9f95c58fc8dbe4d4ea24c2328
+    # Reinstall a modified same-version package too; --needed would skip repair.
+    if [[ $(pacman -Q linux-aurora-dsc 2>/dev/null || :) != 'linux-aurora-dsc 7.2.11.aurora11-3.1' ]] ||
+            ! printf '%s  %s\n' "$module_sha" "$module" | sha256sum --check --status 2>/dev/null; then
+        pacman -U --noconfirm "$package"
+    fi
+    python3 "$stage/runtime/host-setup.py" select-kernel
+    systemctl daemon-reload
+    systemctl enable mac-steam-m3-panel.service
+fi
+
 # Expose muvm's merged rootfs at Valve's graphics-provider discovery path.
 mkdir -p /usr/share/guestos
 if [[ -e /usr/share/guestos/fex-mesa && ! -L /usr/share/guestos/fex-mesa ]]; then
@@ -159,4 +187,7 @@ runuser -u "$target_user" -- xdg-mime default steam.desktop x-scheme-handler/ste
 echo 'Installed! Open Steam (Mac Ultimate WIP) from your app launcher, or run steam-mac-ultimate.'
 echo 'Sign in normally, install AoE2 DE, and use Proton Experimental. Steam supplies its own FEX tool and Vulkan bridge.'
 echo 'The launcher applies the pinned AoE2 fixes when that tool finishes downloading.'
+if (( m3 )); then
+    echo 'Reboot once before playing: the qualified M3 display kernel is selected automatically.'
+fi
 echo "Installer log: $cache/overlays.log"

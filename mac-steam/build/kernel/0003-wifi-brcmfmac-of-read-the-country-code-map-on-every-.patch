@@ -1,0 +1,54 @@
+From 011a82af8b2421085ef434636b56c96c169295c0 Mon Sep 17 00:00:00 2001
+From: Eryk Wieliczko <eryk@wieliczko.ninja>
+Date: Sat, 31 Oct 2026 02:47:46 +0100
+Subject: [PATCH 3/4] wifi: brcmfmac: of: read the country code map on every
+ bus
+
+brcmf_of_probe() reads brcm,ccode-map and brcm,ccode-map-trivial only
+from nodes compatible with "brcm,bcm4329-fmac". The binding also allows
+the PCIe compatibles ("pci14e4,4425" and so on) that Apple ARM64 device
+trees use, but those nodes never have that compatible, so the driver
+ignores the map there.
+
+Without a map, brcmf_cfg80211_reg_notifier() can't translate the
+country cfg80211 settles on (from the user or the AP's country element)
+and returns, so the firmware keeps the worldwide default from the NVRAM
+(ccode=XZ on Apple boards) whatever the regulatory domain is.
+
+Read the map from any device tree node. Keep reading the MAC address and
+the SDIO settings only from "brcm,bcm4329-fmac" nodes, as before.
+
+Signed-off-by: Eryk Wieliczko <eryk@wieliczko.ninja>
+Assisted-by: Claude:claude-opus-5-5
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/of.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/of.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/of.c
+index 03efae36a0b2..1d8a85c6d244 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/of.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/of.c
+@@ -121,13 +121,19 @@ int brcmf_of_probe(struct device *dev, enum brcmf_bus_type bus_type,
+ 
+ 	brcmf_dbg(INFO, "%s LPO clock\n", clk ? "enable" : "no");
+ 
+-	if (!np || !of_device_is_compatible(np, "brcm,bcm4329-fmac"))
++	if (!np)
+ 		return 0;
+ 
++	/* The country code map applies to every bus, not only SDIO: Apple
++	 * ARM64 platforms describe their PCIe chips with "pci14e4,..." only.
++	 */
+ 	err = brcmf_of_get_country_codes(dev, settings);
+ 	if (err)
+ 		brcmf_err("failed to get OF country code map (err=%d)\n", err);
+ 
++	if (!of_device_is_compatible(np, "brcm,bcm4329-fmac"))
++		return 0;
++
+ 	err = of_get_mac_address(np, settings->mac);
+ 	if (err == -EPROBE_DEFER)
+ 		return err;
+-- 
+2.55.0
+

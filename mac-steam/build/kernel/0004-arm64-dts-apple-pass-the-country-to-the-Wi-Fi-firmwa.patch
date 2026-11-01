@@ -1,0 +1,153 @@
+From 6b36139e5804052213c04aa386a8895c34763c18 Mon Sep 17 00:00:00 2001
+From: Eryk Wieliczko <eryk@wieliczko.ninja>
+Date: Sat, 31 Oct 2026 02:47:46 +0100
+Subject: [PATCH 4/4] arm64: dts: apple: pass the country to the Wi-Fi firmware
+
+The Broadcom firmware on Apple boards takes ISO 3166 country codes with
+revision 0: its CLM blob has an entry for each country, and setting
+ccode=PL (no regrev) in the NVRAM is accepted. Mark every Apple
+Broadcom Wi-Fi node with brcm,ccode-map-trivial so brcmfmac passes the
+regulatory domain to the firmware instead of leaving it on the NVRAM's
+worldwide ccode=XZ.
+
+The t602x boards inherit the property from the t600x nodes they
+override. The t8140 Wi-Fi is not Broadcom and is left alone.
+
+Signed-off-by: Eryk Wieliczko <eryk@wieliczko.ninja>
+Assisted-by: Claude:claude-opus-5-5
+---
+ arch/arm64/boot/dts/apple/t600x-j314-j316.dtsi | 1 +
+ arch/arm64/boot/dts/apple/t600x-j375.dtsi      | 1 +
+ arch/arm64/boot/dts/apple/t6022-j180d.dts      | 1 +
+ arch/arm64/boot/dts/apple/t603x-j514-j516.dtsi | 1 +
+ arch/arm64/boot/dts/apple/t8103-jxxx.dtsi      | 1 +
+ arch/arm64/boot/dts/apple/t8112-j413.dts       | 1 +
+ arch/arm64/boot/dts/apple/t8112-j415.dts       | 1 +
+ arch/arm64/boot/dts/apple/t8112-j473.dts       | 1 +
+ arch/arm64/boot/dts/apple/t8112-j493.dts       | 1 +
+ arch/arm64/boot/dts/apple/t8122-jxxx.dtsi      | 1 +
+ 10 files changed, 10 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/apple/t600x-j314-j316.dtsi b/arch/arm64/boot/dts/apple/t600x-j314-j316.dtsi
+index ca735a7975bb..a15e5d77a70f 100644
+--- a/arch/arm64/boot/dts/apple/t600x-j314-j316.dtsi
++++ b/arch/arm64/boot/dts/apple/t600x-j314-j316.dtsi
+@@ -568,6 +568,7 @@ wifi0: wifi@0,0 {
+ 		/* To be filled by the loader */
+ 		local-mac-address = [00 10 18 00 00 10];
+ 		apple,antenna-sku = "XX";
++		brcm,ccode-map-trivial;
+ 	};
+ 
+ 	bluetooth0: bluetooth@0,1 {
+diff --git a/arch/arm64/boot/dts/apple/t600x-j375.dtsi b/arch/arm64/boot/dts/apple/t600x-j375.dtsi
+index 2b16c93d410b..07eb49ea25df 100644
+--- a/arch/arm64/boot/dts/apple/t600x-j375.dtsi
++++ b/arch/arm64/boot/dts/apple/t600x-j375.dtsi
+@@ -646,6 +646,7 @@ wifi0: wifi@0,0 {
+ 		/* To be filled by the loader */
+ 		local-mac-address = [00 10 18 00 00 10];
+ 		apple,antenna-sku = "XX";
++		brcm,ccode-map-trivial;
+ 	};
+ 
+ 	bluetooth0: bluetooth@0,1 {
+diff --git a/arch/arm64/boot/dts/apple/t6022-j180d.dts b/arch/arm64/boot/dts/apple/t6022-j180d.dts
+index cbfa09273c41..1c81cbc75d77 100644
+--- a/arch/arm64/boot/dts/apple/t6022-j180d.dts
++++ b/arch/arm64/boot/dts/apple/t6022-j180d.dts
+@@ -1002,6 +1002,7 @@ wifi0: wifi@0,0 {
+ 				compatible = "pci14e4,4433";
+ 				brcm,board-type = "apple,sumatra";
+ 				apple,antenna-sku = "XX";
++				brcm,ccode-map-trivial;
+ 				/* To be filled by the loader */
+ 				local-mac-address = [00 10 18 00 00 10];
+ 			};
+diff --git a/arch/arm64/boot/dts/apple/t603x-j514-j516.dtsi b/arch/arm64/boot/dts/apple/t603x-j514-j516.dtsi
+index 74fd80bc5af7..c94ac3fd08a2 100644
+--- a/arch/arm64/boot/dts/apple/t603x-j514-j516.dtsi
++++ b/arch/arm64/boot/dts/apple/t603x-j514-j516.dtsi
+@@ -231,6 +231,7 @@ wifi0: wifi@0,0 {
+ 		/* To be filled by the loader */
+ 		local-mac-address = [00 10 18 00 00 10];
+ 		apple,antenna-sku = "XX";
++		brcm,ccode-map-trivial;
+ 	};
+ 
+ 	bluetooth0: bluetooth@0,1 {
+diff --git a/arch/arm64/boot/dts/apple/t8103-jxxx.dtsi b/arch/arm64/boot/dts/apple/t8103-jxxx.dtsi
+index e6b351e0802d..77485eb85b0b 100644
+--- a/arch/arm64/boot/dts/apple/t8103-jxxx.dtsi
++++ b/arch/arm64/boot/dts/apple/t8103-jxxx.dtsi
+@@ -374,6 +374,7 @@ wifi0: wifi@0,0 {
+ 		/* To be filled by the loader */
+ 		local-mac-address = [00 00 00 00 00 00];
+ 		apple,antenna-sku = "XX";
++		brcm,ccode-map-trivial;
+ 	};
+ 
+ 	bluetooth0: bluetooth@0,1 {
+diff --git a/arch/arm64/boot/dts/apple/t8112-j413.dts b/arch/arm64/boot/dts/apple/t8112-j413.dts
+index eb03ebf173d7..f2a9623bfa21 100644
+--- a/arch/arm64/boot/dts/apple/t8112-j413.dts
++++ b/arch/arm64/boot/dts/apple/t8112-j413.dts
+@@ -67,6 +67,7 @@ wifi0: wifi@0,0 {
+ 		/* To be filled by the loader */
+ 		local-mac-address = [00 10 18 00 00 10];
+ 		apple,antenna-sku = "XX";
++		brcm,ccode-map-trivial;
+ 		brcm,board-type = "apple,hokkaido";
+ 	};
+ 
+diff --git a/arch/arm64/boot/dts/apple/t8112-j415.dts b/arch/arm64/boot/dts/apple/t8112-j415.dts
+index 2e2b982c584e..12ec99ace15f 100644
+--- a/arch/arm64/boot/dts/apple/t8112-j415.dts
++++ b/arch/arm64/boot/dts/apple/t8112-j415.dts
+@@ -67,6 +67,7 @@ wifi0: wifi@0,0 {
+ 		/* To be filled by the loader */
+ 		local-mac-address = [00 10 18 00 00 10];
+ 		apple,antenna-sku = "XX";
++		brcm,ccode-map-trivial;
+ 		brcm,board-type = "apple,snake";
+ 	};
+ 
+diff --git a/arch/arm64/boot/dts/apple/t8112-j473.dts b/arch/arm64/boot/dts/apple/t8112-j473.dts
+index 46992c686841..1fb0adbb49b9 100644
+--- a/arch/arm64/boot/dts/apple/t8112-j473.dts
++++ b/arch/arm64/boot/dts/apple/t8112-j473.dts
+@@ -174,6 +174,7 @@ wifi0: wifi@0,0 {
+ 		/* To be filled by the loader */
+ 		local-mac-address = [00 10 18 00 00 10];
+ 		apple,antenna-sku = "XX";
++		brcm,ccode-map-trivial;
+ 		brcm,board-type = "apple,miyake";
+ 	};
+ 
+diff --git a/arch/arm64/boot/dts/apple/t8112-j493.dts b/arch/arm64/boot/dts/apple/t8112-j493.dts
+index ca6a3ce364ec..a81bcda7a9c5 100644
+--- a/arch/arm64/boot/dts/apple/t8112-j493.dts
++++ b/arch/arm64/boot/dts/apple/t8112-j493.dts
+@@ -114,6 +114,7 @@ wifi0: wifi@0,0 {
+ 		/* To be filled by the loader */
+ 		local-mac-address = [00 00 00 00 00 00];
+ 		apple,antenna-sku = "XX";
++		brcm,ccode-map-trivial;
+ 		brcm,board-type = "apple,kyushu";
+ 	};
+ 
+diff --git a/arch/arm64/boot/dts/apple/t8122-jxxx.dtsi b/arch/arm64/boot/dts/apple/t8122-jxxx.dtsi
+index 5c0051a65263..b7739c2558d5 100644
+--- a/arch/arm64/boot/dts/apple/t8122-jxxx.dtsi
++++ b/arch/arm64/boot/dts/apple/t8122-jxxx.dtsi
+@@ -97,6 +97,7 @@ wifi0: wifi@0,0 {
+ 		/* To be filled by the loader */
+ 		local-mac-address = [00 00 00 00 00 00];
+ 		apple,antenna-sku = "XX";
++		brcm,ccode-map-trivial;
+ 	};
+ 
+ 	bluetooth0: bluetooth@0,1 {
+-- 
+2.55.0
+

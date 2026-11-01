@@ -1,5 +1,26 @@
 # Omarchy scripts
 
+## Fresh M3 Pro setup for AoE2
+
+Boot your installed Omarchy system, open a terminal as your desktop user, and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/install-mac-kde-ultimate-wip.sh | bash -
+curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/install-mac-steam-ultimate-wip.sh | bash -
+```
+
+Reboot once, log into **Omarchy (KDE Plasma)** with your normal password, and open
+**Steam (Mac Ultimate WIP)**. Sign into Steam, install **Age of Empires II:
+Definitive Edition**, and play. Steam downloads its compatibility tools normally;
+the launcher applies the tested Vulkan and keyboard repairs automatically.
+
+The Steam script installs the qualified M3 display kernel, selects it for the next
+boot, enables the panel timestamp fix, and disables costly KVM idle polling.
+Everything is downloaded as checksum-verified binaries; installation does not
+compile FEX, Mesa, Wine or the kernel. Your resolution and graphics quality remain
+your choice. The experimental lossless compression and FEX short-validation
+builds are not defaults in this release.
+
 ## Install Mac Steam Ultimate WIP
 
 Steam on **Omarchy / Arch Linux ARM, Apple M1 (T8103) or M3 Pro (T6030)**, using the FEX and Mesa fixes that got Age of Empires II: Definitive Edition running on the M3 Pro.
@@ -12,11 +33,11 @@ curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/
 
 The script asks for sudo, downloads a pinned installer and checksum-verified binaries, installs the required packages, and adds **Steam (Mac Ultimate WIP)** to the app launcher. You can also launch it with `steam-mac-ultimate`.
 
-Sign in to Steam normally, install AoE2 DE, and select **Proton Experimental** in the game's Compatibility settings. Steam downloads its FEX compatibility tool automatically. The launcher applies our pinned FEX build when that download completes, including after subsequent tool updates. Exit Steam and reopen it if a tool update happened while a game was running.
+Sign in to Steam normally and install AoE2 DE. The tested native ARM Steam client uses **Proton Experimental** through its FEX compatibility layer. The launcher applies our pinned FEX build when that download completes, including after subsequent tool updates. Exit Steam and reopen it if a tool update happened while a game was running.
 
 The installer is repeatable, keeps backups of replaced Steam files, and supports a root invocation with `--user YOUR_ACCOUNT`. Close existing Steam/muvm applications before installing. A first installation downloads roughly 1 GB before Steam's own client/runtime downloads. Keep at least 6 GiB free, plus space for games.
 
-**WIP scope:** supports the M1 MacBook Air and 14-inch M3 Pro on Omarchy edge, kernel `7.2.11-11-dsc3-ARCH`. Other Apple chips and distributions are rejected by this release. See the validation notes for checks performed on each machine. Game performance depends on the game, Proton, and the host graphics/kernel stack; this installer does not promise 120 FPS.
+**WIP scope:** supports the M1 MacBook Air and 14-inch M3 Pro on Omarchy edge. On the M3 Pro the Steam script also installs the qualified `7.2.11-11-dsc3-ARCH` kernel; a prior custom kernel installation is unnecessary. The stock kernel remains available as a boot fallback. Other Apple chips and distributions are rejected by this release. See the validation notes for checks performed on each machine. Extended game stability remains under investigation after a long stress-test menu exhausted guest RAM; this installer does not promise 120 FPS.
 
 See [versions, implementation, validation and rebuilding](mac-steam/README.md).
 
