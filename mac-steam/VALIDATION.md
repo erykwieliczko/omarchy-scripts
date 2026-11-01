@@ -1,5 +1,48 @@
 # Validation — 2026-11-01
 
+## Gameplay cursor and render-ahead — 2026-11-01 afternoon
+
+The owner reported a small gameplay cursor delay, while KDE and the skirmish
+setup UI felt immediate. The inspected preferences were 3024×1964, Low, a
+120 FPS cap and V-Sync off. Quality, resolution and the cap were not changed.
+KWin reports OpenGL ES composition on the M3 Pro. A compositor capture of black
+fog contains the pointer when cursor embedding is enabled and is entirely black
+with cursor hiding, identifying a compositor cursor in this test.
+
+A verified small-skirmish sample with V-Sync off recorded about 109 X Present
+completion events/s but only 34 distinct feedback timestamps/s. With V-Sync on,
+the next sample recorded about 97/s with no repeated timestamps; a separate
+passive run recorded 102.28/s, p95 12.91 ms. During timestamped pointer circles,
+the compositor capture delivered about 116 updates/s in skirmish setup, 61/s in
+gameplay with V-Sync off and 105/s with V-Sync on. The owner reported noticeably
+better cursor response with V-Sync, with some remaining gap from KDE.
+
+The next launch used only `dxgi.maxFrameLatency = 1` in the game's previously
+absent `dxvk.conf`. DXVK `v3.1.1-97-ga78a467cadb22be` logged that it loaded the
+file and applied the effective setting. Its main swapchain was FIFO, 3024×1964,
+reported refresh 119.9 Hz. The temporary Proton info-logging profile was removed
+after verification. A real new skirmish loaded successfully. Passive measurement
+recorded **101.99 distinct presentations/s**, p95 17.61 ms; cursor capture during
+motion was about 102 updates/s. The owner described the resulting cursor as
+**very smooth**. The one-frame limit and V-Sync remain enabled on the M3.
+
+These are presentation and compositor-capture observations, not independent
+physical scanout or input-to-photon measurements. Cursor positions in the capture
+closely follow the latest injected input, excluding delays later in the GPU and
+display path. The first V-Sync change reapplied the existing default zoom; the
+one-frame comparison used a new random-map skirmish. Those differences prevent
+claiming a tightly controlled performance gain or attributing the mechanism
+conclusively to GPU saturation. The initial critically-low-battery run and an
+accidental Graphics Options sample were excluded from gameplay comparisons.
+No kernel, FEX, Mesa or Wine code was changed for this input improvement.
+
+The preparer now adds the same one-frame default after a completed AoE2 download,
+including additional Steam libraries. It preserves explicit user latency values,
+unrelated configuration, original backups and file permissions. Symlinked configs
+are preserved. Four integration regressions cover deferred downloads, idempotence,
+custom settings/backups, explicit choices, symlinks and external libraries.
+All 29 Steam tests pass. The M1 has not been tested with this input setup.
+
 ## Temporary CPU performance policy — 2026-11-01 late morning
 
 After the FEX server lifetime repair below, the M3 still took 114–119 seconds

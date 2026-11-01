@@ -109,6 +109,73 @@ class SteamUpdates(unittest.TestCase):
                 template_path.write_text(json.dumps(original))
                 native_icd.unlink()
 
+    def install_game_fixture(self, library=None):
+        library = library or self.root
+        game = library / 'steamapps/common/AoE2DE'
+        game.mkdir(parents=True)
+        (game / 'AoE2DE_s.exe').write_bytes(b'game fixture')
+        manifest = library / 'steamapps/appmanifest_813780.acf'
+        manifest.write_text('"StateFlags" "4"\n')
+        return game, manifest
+
+    def test_dxvk_waits_for_complete_game_then_installs_once(self):
+        game, manifest = self.install_game_fixture()
+        manifest.write_text('"StateFlags" "1026"\n')
+        prepare.prepare(self.root, {})
+        config = game / 'dxvk.conf'
+        self.assertFalse(config.exists())
+        manifest.write_text('"StateFlags" "4"\n')
+        downloading = self.root / 'steamapps/downloading/813780'
+        downloading.mkdir(parents=True)
+        prepare.prepare(self.root, {})
+        self.assertFalse(config.exists())
+        downloading.rmdir()
+        prepare.prepare(self.root, {})
+        self.assertIn('dxgi.maxFrameLatency = 1\n', config.read_text())
+        inode, modified = config.stat().st_ino, config.stat().st_mtime_ns
+        prepare.prepare(self.root, {})
+        self.assertEqual((config.stat().st_ino, config.stat().st_mtime_ns), (inode, modified))
+
+    def test_dxvk_preserves_settings_comments_and_original_backup(self):
+        game, _ = self.install_game_fixture()
+        config = game / 'dxvk.conf'
+        original = '# dxgi.maxFrameLatency = 0\ndxvk.hud = fps\n[Other.exe]\ndxgi.syncInterval = 0\n'
+        config.write_text(original)
+        config.chmod(0o600)
+        prepare.prepare(self.root, {})
+        self.assertTrue(config.read_text().endswith(original))
+        self.assertIn('\ndxgi.maxFrameLatency = 1\n', config.read_text())
+        self.assertEqual(config.stat().st_mode & 0o777, 0o600)
+        backup = config.with_name('dxvk.conf.pre-ultimate')
+        self.assertEqual(backup.read_text(), original)
+        prepare.prepare(self.root, {})
+        self.assertEqual(backup.read_text(), original)
+
+    def test_dxvk_respects_explicit_user_latency_and_symlink(self):
+        game, _ = self.install_game_fixture()
+        config = game / 'dxvk.conf'
+        for value in (0, 3):
+            original = f'[AoE2DE_s.exe]\n  dxgi.maxFrameLatency = {value}\n'
+            config.write_text(original)
+            prepare.prepare(self.root, {})
+            self.assertEqual(config.read_text(), original)
+            self.assertFalse(config.with_name('dxvk.conf.pre-ultimate').exists())
+        config.unlink()
+        outside = self.base / 'custom-dxvk.conf'
+        outside.write_text('dxvk.hud = fps\n')
+        config.symlink_to(outside)
+        prepare.prepare(self.root, {})
+        self.assertTrue(config.is_symlink())
+        self.assertEqual(outside.read_text(), 'dxvk.hud = fps\n')
+
+    def test_dxvk_follows_external_game_library_without_touching_absent_games(self):
+        external = self.base / 'External Steam library'
+        game, _ = self.install_game_fixture(external)
+        (self.root / 'steamapps/libraryfolders.vdf').write_text(f'"path" "{external}"\n')
+        prepare.prepare(self.root, {})
+        self.assertIn('dxgi.maxFrameLatency = 1\n', (game / 'dxvk.conf').read_text())
+        self.assertFalse((self.root / 'steamapps/common/AoE2DE').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

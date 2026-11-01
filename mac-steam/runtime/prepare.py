@@ -82,6 +82,34 @@ def proton_in_use(proton):
     return False
 
 
+def prepare_aoe_dxvk(library):
+    """Apply the tested render-ahead limit after the game download completes."""
+    appmanifest = library / 'steamapps/appmanifest_813780.acf'
+    game = library / 'steamapps/common/AoE2DE'
+    if (not appmanifest.is_file()
+            or not re.search(r'"StateFlags"\s+"4"', appmanifest.read_text())
+            or (library / 'steamapps/downloading/813780').exists()
+            or not (game / 'AoE2DE_s.exe').is_file()):
+        return
+    config = game / 'dxvk.conf'
+    if config.is_symlink() or (config.exists() and not config.is_file()):
+        return
+    original = config.read_text() if config.exists() else ''
+    # An explicit user choice, including 0, takes precedence over our default.
+    if re.search(r'^\s*dxgi\.maxFrameLatency\s*=', original, re.MULTILINE):
+        return
+    backup = config.with_name(config.name + '.pre-ultimate')
+    mode = 0o644
+    if config.exists():
+        mode = config.stat().st_mode & 0o777
+        if not backup.exists():
+            shutil.copy2(config, backup)
+    data = ('# Mac Steam Ultimate: limit render-ahead for responsive input.\n'
+            'dxgi.maxFrameLatency = 1\n' + original)
+    atomic_bytes(config, data.encode(), mode)
+    print(f'Installed AoE2 DXVK render-ahead limit: {config}', flush=True)
+
+
 def prepare_proton(library, seen):
     private = PREFIX / 'wine-focus'
     if not (private / 'manifest.json').is_file():
@@ -137,6 +165,7 @@ def prepare_proton(library, seen):
 def prepare(root, seen):
     paths = libraries(root)
     for library in paths:
+        prepare_aoe_dxvk(library)
         prepare_proton(library, seen)
         tool = library / 'steamapps/common/FEX-Emu'
         binaries = {tool / 'usr/bin' / name: PREFIX / 'fex/bin' / name

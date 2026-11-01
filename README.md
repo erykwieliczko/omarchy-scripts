@@ -50,6 +50,10 @@ then restores the previous governors on exit. This uses more power while Steam
 is open. On the M3, a fresh-VM launch reached AoE2's intro in about 79 seconds,
 versus 119 seconds before this change; first-use setup can take longer.
 
+AoE2 also gets a one-frame render-ahead limit after its download completes,
+while existing explicit settings are respected. Enable **V-Sync** in the game's
+advanced Graphics options for the tested responsive-cursor setup.
+
 **WIP scope:** supports the M1 MacBook Air and 14-inch M3 Pro on Omarchy edge. On the M3 Pro the Steam script also installs the qualified `7.2.11-11-dsc3-ARCH` kernel; a prior custom kernel installation is unnecessary. The stock kernel remains available as a boot fallback. Other Apple chips and distributions are rejected by this release. See the validation notes for checks performed on each machine. Extended game stability remains under investigation after a long stress-test menu exhausted guest RAM; this installer does not promise 120 FPS.
 
 See [versions, implementation, validation and rebuilding](mac-steam/README.md).

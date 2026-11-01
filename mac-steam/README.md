@@ -51,6 +51,23 @@ CPU emulation. Python is already an installed dependency; no compilation is need
 
 For AoE2 only (app `813780`, executable `AoE2DE_s.exe`), the preparer adds the Arch library paths missing from the thunk database and enables the native Vulkan bridge through FEX's Steam application configuration. It discovers additional Steam library paths, including paths containing spaces. Other games receive the shared FEX correctness fixes; their Vulkan bridge settings are left to Steam.
 
+After AoE2 finishes downloading, the preparer also supplies
+`dxgi.maxFrameLatency = 1` in the game's `dxvk.conf`. This limits render-ahead
+for responsive input. Existing explicit latency settings, including `0` for
+the application/default behavior, are respected. Other configuration content is
+preserved and backed up before adding the default; symlinked configurations
+are left to their owner. The watcher handles games installed after Steam setup
+and games in additional libraries.
+
+Enable **V-Sync** in AoE2's advanced Graphics options for the tested mouse/pacing
+setup. This is a recommendation; the installer leaves your game preferences in
+place. On the M3, the player reported noticeably better cursor response with
+V-Sync, then a very smooth cursor after the one-frame limit. Passive presentation
+measurements were about 102 FPS in both one-frame and V-Sync-only small-skirmish
+runs at 3024×1964 using the player's existing Low preset. Capture counters alone
+do not measure physical input-to-photon latency or establish a GPU utilization
+percentage. See [validation](VALIDATION.md) for the limits of this comparison.
+
 AoE2's native bridge also needs an ARM driver manifest inside pressure-vessel. Its default graphics provider describes the x86 Mesa overlays, so an ARM loader following that catalog cannot load the driver. The preparer writes `FEX-Emu/asahi-native.json`, pointing at the private guest driver exported at `/run/host/usr/lib/libvulkan_asahi.so`. A `ConfigTemplate.json` application override selects it with FEX's `HostEnv` for `AoE2DE_s.exe`; Valve expands the tool-path placeholder into each game's configuration. The manifest and override are restored after tool updates. Driver selection is separate from the x86 overlays, which remain installed.
 
 No account credentials or game files are bundled. First use requires Steam sign-in and the normal game/runtime downloads. The installer leaves resolution and game graphics settings to the player.
@@ -170,6 +187,9 @@ sudo mv -Tf /opt/mac-steam-ultimate/current.rollback /opt/mac-steam-ultimate/cur
 ```
 
 Steam tool files can be restored from `*.valve-original` and `*.pre-ultimate` after disabling this launcher/preparer. Steam's Verify Integrity operation can also restore its managed files. Keep game saves and library directories in place.
+
+To undo the render-ahead default, set `dxgi.maxFrameLatency = 0` in
+`steamapps/common/AoE2DE/dxvk.conf`; the preparer respects that explicit choice.
 
 The M3 kernel can be bypassed by selecting the retained `linux-aurora` entry in
 Limine. Installer-modified Limine files have `.pre-mac-steam` backups. To undo the
