@@ -27,6 +27,15 @@ Baseline used on 2026-10-31: native `omarchy/steam 1.0.0.87-1`, client build `17
 
 Files live under `/opt/mac-steam-ultimate/releases/`; `current` selects the active installation and `previous` retains the preceding one. Distribution-owned Mesa/FEX executables are preserved on the host. Steam's user desktop entry launches `/usr/local/bin/steam-mac-ultimate`; its previous entry is saved as `steam.desktop.pre-ultimate`. `/usr/local/bin/steam` and `/usr/local/bin/omarchy-launch-steam` route command-line launches, game shortcuts and Omarchy bindings through the same setup; existing local commands are backed up as `*.pre-ultimate`. Inside the 4K guest the wrapper selects `/usr/bin/steam` directly.
 
+The installer also installs native ARM GameMode and adds the desktop account to
+its standard `gamemode` group. The host launcher holds a GameMode request while
+the Steam VM runs, allowing the CPU's performance governor during gaming. This
+uses more power while Steam is open; GameMode restores the previous governors
+after the VM exits. User GameMode settings remain in effect. A native Python
+client owns the request and waits for muvm; it does not inject `LD_PRELOAD`
+libraries into the VM, FEX or Proton. Unavailable GameMode produces a warning
+and Steam still starts. `--prepare` does not request GameMode.
+
 Valve's FEX compatibility tool (Steam app `3127680`) supplies the Vulkan guest/host bridge. `runtime/prepare.py` runs before Steam and watches for completed tool downloads while Steam runs. It installs the three pinned FEX executables and a server-manager launcher atomically, saving the first originals as `*.valve-original`. It defers changes when the tool is downloading or running. Existing JSON settings are merged and backed up as `*.pre-ultimate`.
 
 The server-manager launcher runs the pinned native manager and holds one server
@@ -45,12 +54,12 @@ AoE2's native bridge also needs an ARM driver manifest inside pressure-vessel. I
 
 No account credentials or game files are bundled. First use requires Steam sign-in and the normal game/runtime downloads. The installer leaves resolution and game graphics settings to the player.
 
-Allow several minutes for AoE2 startup on the M3. On the fresh Omarchy install,
-Steam spent about 50 seconds launching the compatibility environment before
-the game process appeared; the menu was observed roughly three minutes after
-Play. That same process entered a skirmish and accepted F10 without installing
-anything else. Startup includes substantial CPU work, but these observations
-do not separate FEX compilation from the game's own initialization.
+Recent M3 testing reached the first full-size intro frames in about 79 seconds
+from Steam's launch request, versus 119 seconds before the temporary performance
+governor request. The earlier FEX server lifetime repair had already reduced
+startup from about 193 seconds. These are individual observed launches, not a
+guaranteed startup time; first use also downloads runtimes and runs prerequisites.
+No game integrity checks, resolution or graphics settings were changed.
 
 ### Clean-install M3 display and CPU setup
 

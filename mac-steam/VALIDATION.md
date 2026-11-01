@@ -1,5 +1,37 @@
 # Validation — 2026-11-01
 
+## Temporary CPU performance policy — 2026-11-01 late morning
+
+After the FEX server lifetime repair below, the M3 still took 114–119 seconds
+to first full-size game presentations. Frequency sampling found that schedutil
+frequently left the P-core cluster well below its 4.056 GHz maximum during
+initialization. A temporary standard performance governor test reached that
+same marker in 73.304 seconds. The original governor was restored afterward.
+Reducing FEX's hot-SMC threshold did not improve startup and was reverted.
+Diagnostic profiling and sampling are disabled in the candidate installation.
+
+The candidate installer installs native ARM `gamemode 1.8.2-3` and adds the
+desktop account to its packaged `gamemode` group. GameMode's complete test suite
+passes, including the governor helper, without a new login or password prompt.
+The host launcher uses GameMode's native client API around muvm's lifetime,
+without injecting a native preload library into FEX or Proton. An unavailable
+library or refused request warns and still launches Steam. The request ends on
+normal child exit, launch failure, child crash and forwarded termination.
+Seven process tests cover these paths; all 25 Steam regression tests and
+ShellCheck pass. No FEX/Mesa/Wine/kernel binary changed.
+
+The full candidate installer completed on the M3. A **fresh Steam VM** reached
+the first focused **3024×1964** game presentation events in **79.224 seconds**,
+versus **118.867 seconds** with the preceding public installer (about 33% less
+elapsed time). This is an individual launch comparison, not a guaranteed time.
+Both CPU clusters used the performance governor during the candidate launch.
+The menu was visually checked, a new skirmish loaded, and F10 opened its in-game
+menu. No game integrity check, rendering resolution or quality setting changed.
+Normal game and Steam shutdown ended the host request and restored both CPU
+clusters to their original `schedutil` governors. A subsequent `--prepare` did
+not activate GameMode. A separate finite native-client request also restored
+the governors after exit.
+
 ## Fresh Omarchy reinstall — 2026-11-01 morning
 
 The owner reinstalled both Macs. The public KDE, keyboard and Steam curl

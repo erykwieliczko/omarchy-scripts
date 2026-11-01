@@ -21,7 +21,8 @@ for link in sdk32:linux32 sdk64:linux64 bin32:ubuntu12_32 bin64:ubuntu12_64; do
 done
 python3 "$prefix/runtime/prepare.py"
 export PATH="$prefix/fex/bin:$PATH"
-exec muvm --emu=fex -e "PATH=$PATH" -x "$prefix/runtime/guest-setup" \
+exec python3 "$prefix/runtime/with-gamemode.py" \
+    muvm --emu=fex -e "PATH=$PATH" -x "$prefix/runtime/guest-setup" \
     --fex-image /usr/share/fex-emu/RootFS/default.erofs \
     --fex-image "$prefix/overlays/mesa-i386.erofs" \
     --fex-image "$prefix/overlays/mesa-x86_64.erofs" \

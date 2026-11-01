@@ -63,7 +63,10 @@ fi
 # Never refresh databases without the corresponding full upgrade.
 pacman -S --needed --noconfirm omarchy/steam muvm FEX-Emu fex-emu-rootfs-arch \
     mesa-fex-emu-overlay-x86_64 mesa-fex-emu-overlay-i386 omarchy-steam-fex \
-    erofs-utils python curl zstd vulkan-tools
+    erofs-utils python curl zstd vulkan-tools gamemode
+# Use the package's narrowly scoped Polkit rule for temporary CPU governor requests.
+# Polkit sees this membership immediately; no password prompt or new login is needed.
+usermod -aG gamemode "$target_user"
 mkdir -p "$cache" /opt/mac-steam-ultimate/releases
 while read -r hash file; do
     [[ $file && $hash ]] || continue
@@ -187,7 +190,8 @@ runuser -u "$target_user" -- xdg-mime default steam.desktop x-scheme-handler/ste
 echo 'Installed! Open Steam (Mac Ultimate WIP) from your app launcher, or run steam-mac-ultimate.'
 echo 'Sign in normally, install AoE2 DE, and use Proton Experimental. Steam supplies its own FEX tool and Vulkan bridge.'
 echo 'The launcher applies the pinned AoE2 fixes when that tool finishes downloading.'
-echo 'Allow around two minutes for AoE2 startup on the M3; first use also runs Steam prerequisite installers and can take longer.'
+echo 'Recent M3 testing reached the intro in about 80 seconds; first use also runs Steam prerequisite installers and can take longer.'
+echo 'GameMode requests the performance CPU governor while Steam runs and restores the previous setting when the VM closes.'
 if (( m3 )); then
     echo 'Reboot once before playing: the qualified M3 display kernel is selected automatically.'
 fi
