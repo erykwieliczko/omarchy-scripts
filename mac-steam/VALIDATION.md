@@ -1,4 +1,4 @@
-# Validation — 2026-10-31
+# Validation — 2026-11-01
 
 ## Clean-install packaging update — 2026-11-01
 
@@ -28,6 +28,26 @@ an upgrade/reboot test; the owner's upcoming OS reinstall is a separate test.
   tests check fresh root arguments, retained fallback entries, absent stock-driver
   parameters, idempotence, and refusal to select an unverified module/boot image.
   ShellCheck passes for the updated installer, bootstraps and new build scripts.
+- Both updated public curl bootstraps passed normal-user `--check` on the M3;
+  the Steam bootstrap passed the same check on the M1. They pin payload
+  `b819bb120d1ab43d8c27231e76e9fade726fc78e`, archive SHA-256
+  `5c0a31be06ab885762a4604806273bdbfca7a57c53a73cd2d87f23383fd78a9b`.
+- All eight assets are publicly available in v0.2.0. A complete run of the public
+  Steam curl installer from an **empty download cache** downloaded and verified
+  every asset and completed on the M3. Active prefix:
+  `/opt/mac-steam-ultimate/releases/mac-steam-ultimate-wip-v0.2.0-20261101T050929-25086`.
+- The normal launch reached the intro, full menu and a new skirmish at the
+  existing 6048×3928 stress-test display size. F10 opened the in-game menu.
+  Guest PID 1841 mapped the private ARM driver and qualified patched Wine module;
+  FEX SHA-256 is the baseline `cf4ee475f303bbda6539b333dda2c34ce2ca8146c1f5deb3f13975b7a8473798`.
+  Profiling and measurement hooks were absent. The game and Steam were closed
+  normally before the empty-cache installer run; they were not left running.
+
+An earlier automated startup probe reached focused full-size frames in 191.642 s,
+sent Space once, and the game exited at 04:51:21. There was no guest OOM or new
+game dump. The subsequent launch above allowed the intro to finish naturally.
+The first exit's cause is not established; the benchmark's automatic intro-skip
+helper is not included in the installer. No startup speedup is claimed.
 
 The qualified FEX/Mesa/Wine baseline is retained. The private FEX exact-validation
 candidate, Mesa compression flag, presentation hooks and profiling are excluded
