@@ -15,6 +15,11 @@ Reboot once, log into **Omarchy (KDE Plasma)** with your normal password, and op
 Definitive Edition**, and play. Steam downloads its compatibility tools normally;
 the launcher applies the tested Vulkan and keyboard repairs automatically.
 
+Allow around two minutes for AoE2 startup on the tested M3, including time before
+its window appears. The installer repairs a repeated launcher wait that previously
+made startup take over three minutes. First use also runs Steam's prerequisite
+installers and can take longer; watch Steam's setup progress before retrying.
+
 The keyboard script applies the PC modifier/F-key layout described below.
 
 The Steam script installs the qualified M3 display kernel, selects it for the next

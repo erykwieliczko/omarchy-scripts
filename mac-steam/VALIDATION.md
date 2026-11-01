@@ -1,5 +1,59 @@
 # Validation — 2026-11-01
 
+## Fresh Omarchy reinstall — 2026-11-01 morning
+
+The owner reinstalled both Macs. The public KDE, keyboard and Steam curl
+installers completed on both from the new OS installations and empty Steam
+installer caches. The M1 retained distribution kernel `7.2.11-13-1-ARCH`.
+The M3 rebooted into `7.2.11-11-dsc3-ARCH`, boot ID
+`580cea91-238f-47c5-8056-7ab17b0efef4`, and started native KDE with password
+login. Panel timestamps `Y`, KVM polling `0`, and keyboard parameters `2/1/1`
+persisted across that reboot. Post-reboot M1 checks are still pending.
+
+After the owner signed in and downloaded AoE2 on the M3, its apparent launch
+failure was inspected while the process was still running. No component was
+changed or installed during that attempt. Steam recorded launch at 09:12:34 CET,
+the game process at 09:13:32, and a screenshot captured the main menu by about
+09:15. The same launch entered a new skirmish and F10 opened its in-game menu.
+No game crash dump, guest OOM or new GPU fault was found during this check.
+
+The actual game mapped the private native ARM Vulkan driver and patched Wine
+module. The downloaded Valve tool's FEX SHA-256 was `cf4ee475...`; its Wine
+X11 module was `27539e89...`, matching the pinned release. The Steam VM had
+4096-byte pages and registered `/opt/mac-steam-ultimate/current/fex/bin/FEX`
+as its x86-64 interpreter. This establishes a fresh-install M3 gameplay/input
+result. It does not establish extended stability or a startup optimization.
+
+The next launch repeated the delay: **192.8 seconds** from Steam IPC to its
+first focused 3024×1964 presentation events. Steam's prerequisite checker took
+about 55 seconds, and the subsequent game compatibility launch took another
+55 seconds before the AoE process appeared. This rules out attributing the whole
+delay to one-time setup or game JIT compilation.
+
+Tracing found that pressure-vessel's short FEX helpers repeatedly finish but
+leave their output pipes open through a newly spawned server's one-second idle
+timeout. The native manager starts a server with a watch pipe; when an existing
+server wins the lock, that watch pipe is not attached to it. The manager closes
+its connection anyway, allowing the existing server to exit between helpers.
+A real, successful tiny x86 program averaged 1.028 seconds when its output was
+captured normally and 0.0146 seconds while a server connection was retained.
+
+The packaged manager launcher now retains a connection for pressure-vessel's
+lifetime while delegating native startup to the pinned FEX manager. Five process
+tests cover existing-server lifetime, readiness/EOF, termination cleanup,
+unready/missing servers and the long-library-path temporary-socket fallback.
+All 18 Steam tests pass. The full candidate installer completed on the M3.
+No missing dependency was reproduced; this fixes a launcher lifetime bug.
+
+The first complete candidate launch produced focused 3024×1964 presentation
+events after **113.7 seconds**, versus **192.8 seconds** before the fix. Its
+prerequisite and game-launch stages took approximately 23 and 21 seconds,
+versus about 55 seconds each previously. This is a single end-to-end comparison,
+supported by the isolated helper test; it is not an instantaneous-start claim.
+KDE locked during the unattended run, so these events measure game presentation,
+not visibility through the lock screen. Normal unlock showed the rendered menu.
+That launch subsequently entered a new skirmish; F10 opened the in-game menu.
+
 ## Clean-install packaging update — 2026-11-01
 
 The v0.2.0 installer was exercised on the existing M3 installation, then the

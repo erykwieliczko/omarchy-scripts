@@ -27,13 +27,30 @@ Baseline used on 2026-10-31: native `omarchy/steam 1.0.0.87-1`, client build `17
 
 Files live under `/opt/mac-steam-ultimate/releases/`; `current` selects the active installation and `previous` retains the preceding one. Distribution-owned Mesa/FEX executables are preserved on the host. Steam's user desktop entry launches `/usr/local/bin/steam-mac-ultimate`; its previous entry is saved as `steam.desktop.pre-ultimate`. `/usr/local/bin/steam` and `/usr/local/bin/omarchy-launch-steam` route command-line launches, game shortcuts and Omarchy bindings through the same setup; existing local commands are backed up as `*.pre-ultimate`. Inside the 4K guest the wrapper selects `/usr/bin/steam` directly.
 
-Valve's FEX compatibility tool (Steam app `3127680`) supplies the Vulkan guest/host bridge. `runtime/prepare.py` runs before Steam and watches for completed tool downloads while Steam runs. It replaces the four FEX executables atomically and saves the first originals as `*.valve-original`. It defers changes when the tool is downloading or running. Existing JSON settings are merged and backed up as `*.pre-ultimate`.
+Valve's FEX compatibility tool (Steam app `3127680`) supplies the Vulkan guest/host bridge. `runtime/prepare.py` runs before Steam and watches for completed tool downloads while Steam runs. It installs the three pinned FEX executables and a server-manager launcher atomically, saving the first originals as `*.valve-original`. It defers changes when the tool is downloading or running. Existing JSON settings are merged and backed up as `*.pre-ultimate`.
+
+The server-manager launcher runs the pinned native manager and holds one server
+connection until pressure-vessel closes its lifetime pipe. The pinned manager's
+watch pipe is ineffective if a server was already running when it started.
+Without a retained connection, short graphics/platform probes repeatedly start
+servers that keep their output pipes open until a one-second idle timeout.
+This repair keeps the existing server alive for the container and releases the
+connection during normal exit or termination. It applies to Steam's prerequisite
+checker and game launches; it does not skip prerequisite checks or change FEX's
+CPU emulation. Python is already an installed dependency; no compilation is needed.
 
 For AoE2 only (app `813780`, executable `AoE2DE_s.exe`), the preparer adds the Arch library paths missing from the thunk database and enables the native Vulkan bridge through FEX's Steam application configuration. It discovers additional Steam library paths, including paths containing spaces. Other games receive the shared FEX correctness fixes; their Vulkan bridge settings are left to Steam.
 
 AoE2's native bridge also needs an ARM driver manifest inside pressure-vessel. Its default graphics provider describes the x86 Mesa overlays, so an ARM loader following that catalog cannot load the driver. The preparer writes `FEX-Emu/asahi-native.json`, pointing at the private guest driver exported at `/run/host/usr/lib/libvulkan_asahi.so`. A `ConfigTemplate.json` application override selects it with FEX's `HostEnv` for `AoE2DE_s.exe`; Valve expands the tool-path placeholder into each game's configuration. The manifest and override are restored after tool updates. Driver selection is separate from the x86 overlays, which remain installed.
 
 No account credentials or game files are bundled. First use requires Steam sign-in and the normal game/runtime downloads. The installer leaves resolution and game graphics settings to the player.
+
+Allow several minutes for AoE2 startup on the M3. On the fresh Omarchy install,
+Steam spent about 50 seconds launching the compatibility environment before
+the game process appeared; the menu was observed roughly three minutes after
+Play. That same process entered a skirmish and accepted F10 without installing
+anything else. Startup includes substantial CPU work, but these observations
+do not separate FEX compilation from the game's own initialization.
 
 ### Clean-install M3 display and CPU setup
 

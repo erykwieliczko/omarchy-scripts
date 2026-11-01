@@ -140,7 +140,8 @@ def prepare(root, seen):
         prepare_proton(library, seen)
         tool = library / 'steamapps/common/FEX-Emu'
         binaries = {tool / 'usr/bin' / name: PREFIX / 'fex/bin' / name
-                    for name in ('FEX', 'FEXServer', 'FEXServerManager')}
+                    for name in ('FEX', 'FEXServer')}
+        binaries[tool / 'usr/bin/FEXServerManager'] = PREFIX / 'runtime/fex-server-manager'
         binaries[tool / 'FEXCompatTool'] = PREFIX / 'fex/bin/FEXCompatTool'
         manifest = library / 'steamapps/appmanifest_3127680.acf'
         ready = (manifest.exists() and re.search(r'"StateFlags"\s+"4"', manifest.read_text())

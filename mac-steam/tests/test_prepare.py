@@ -24,6 +24,8 @@ class SteamUpdates(unittest.TestCase):
         self.patch.start()
         self.addCleanup(self.patch.stop)
         (self.prefix / 'fex/bin').mkdir(parents=True)
+        (self.prefix / 'runtime').mkdir()
+        (self.prefix / 'runtime/fex-server-manager').write_bytes(b'server lifetime wrapper')
         (self.tool / 'usr/bin').mkdir(parents=True)
         for name in ('FEX', 'FEXServer', 'FEXServerManager', 'FEXCompatTool'):
             (self.prefix / 'fex/bin' / name).write_bytes(b'patched ' + name.encode())
@@ -39,6 +41,7 @@ class SteamUpdates(unittest.TestCase):
         prepare.prepare(self.root, seen)
         target = self.tool / 'usr/bin/FEX'
         self.assertEqual(target.read_bytes(), b'patched FEX')
+        self.assertEqual((self.tool / 'usr/bin/FEXServerManager').read_bytes(), b'server lifetime wrapper')
         inode = target.stat().st_ino
         prepare.prepare(self.root, seen)
         self.assertEqual(target.stat().st_ino, inode)

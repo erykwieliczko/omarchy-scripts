@@ -1,0 +1,67 @@
+#!/usr/bin/python3
+"""Retain a FEX server connection until pressure-vessel closes its input pipe."""
+import os
+from pathlib import Path
+import signal
+import socket
+import subprocess
+import sys
+
+MANAGER = Path('/opt/mac-steam-ultimate/current/fex/bin/FEXServerManager')
+
+
+def server_address(environment):
+    # Match the pinned Steam build's GetServerSocketPath, including its fallback
+    # when a library path would exceed sockaddr_un.sun_path's 107 usable bytes.
+    directory = environment['STEAM_COMPAT_DATA_PATH']
+    address = f'{directory}/fex-emu/Server//{os.getuid()}.FEXServer.Socket'
+    if len(os.fsencode(address)) > 107:
+        temporary = next((environment[key] for key in
+                          ('XDG_RUNTIME_DIR', 'TMPDIR', 'TMP', 'TEMP', 'TEMPDIR')
+                          if key in environment), '/tmp')
+        address = f'{temporary}/{environment.get("SteamAppId", "")}.FEXServer.Socket'
+    return address
+
+
+def terminate(signum, frame):
+    raise SystemExit(128 + signum)
+
+
+def main():
+    signal.signal(signal.SIGTERM, terminate)
+    signal.signal(signal.SIGINT, terminate)
+    with socket.socket(socket.AF_UNIX) as lease:
+        child = subprocess.Popen([str(MANAGER), *sys.argv[1:]], stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE)
+        try:
+            if child.stdout.readline() != b'READY=1\n':
+                raise RuntimeError('Native FEX server manager did not become ready')
+            # The native manager can connect to a server that was already running.
+            # In that case its new watch pipe was never installed. Keeping this
+            # connection open also pins that existing server across helper exits.
+            lease.connect(server_address(os.environ))
+            os.write(sys.stdout.fileno(), b'READY=1\n')
+            # Python's standard stream has closefd=False: closing only the
+            # Python object would leave this readiness pipe open until exit.
+            os.close(sys.stdout.fileno())
+            sys.stdout = open(os.devnull, 'w')
+            while sys.stdin.buffer.read(4096):
+                pass
+        finally:
+            lease.close()
+            child.stdin.close()
+            child.stdout.close()
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                child.terminate()
+                child.wait(timeout=5)
+    return child.returncode
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except (OSError, KeyError, RuntimeError) as error:
+        print(f'FEX server lifetime manager: {error}', file=sys.stderr)
+        sys.exit(126)

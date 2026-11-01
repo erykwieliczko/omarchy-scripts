@@ -187,6 +187,7 @@ runuser -u "$target_user" -- xdg-mime default steam.desktop x-scheme-handler/ste
 echo 'Installed! Open Steam (Mac Ultimate WIP) from your app launcher, or run steam-mac-ultimate.'
 echo 'Sign in normally, install AoE2 DE, and use Proton Experimental. Steam supplies its own FEX tool and Vulkan bridge.'
 echo 'The launcher applies the pinned AoE2 fixes when that tool finishes downloading.'
+echo 'Allow around two minutes for AoE2 startup on the M3; first use also runs Steam prerequisite installers and can take longer.'
 if (( m3 )); then
     echo 'Reboot once before playing: the qualified M3 display kernel is selected automatically.'
 fi
