@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import shlex
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -132,6 +133,64 @@ os.execvp('bash', ['bash', '-c', body, *sys.argv[5:]])
         self.assertIn('Applying keyboard settings (sudo)', result.stdout)
         self.assertIn('No reboot needed', result.stdout)
         self.assertIn(DESIRED, self.config.read_text())
+
+    def add_limine(self):
+        self.write('var/lib/omarchy/limine.enabled', '')
+        self.esp = self.root / 'boot/efi'
+        self.write('etc/default/limine',
+                   f'ESP_PATH="{self.esp}"\nENABLE_UKI=yes\nCUSTOM_UKI_NAME="omarchy"\n')
+        self.limine_config = self.write('boot/efi/limine.conf', 'original boot configuration')
+        self.ukis = []
+        for name in ('linux-aurora', 'linux-aurora-dsc'):
+            self.write(f'etc/mkinitcpio.d/{name}.preset', '')
+            self.ukis.append(self.write(f'boot/efi/EFI/Linux/omarchy_{name}.efi', 'original UKI'))
+        # Stub only the archive decoder; the real PE parsing and configuration
+        # comparison execute, along with filesystem writes and error recovery.
+        data = bytearray(256)
+        struct.pack_into('<I', data, 0x3c, 64)
+        data[64:68] = b'PE\0\0'
+        struct.pack_into('<H', data, 70, 1)
+        struct.pack_into('<H', data, 84, 0)
+        data[88:96] = b'.initrd\0'
+        struct.pack_into('<IIII', data, 96, 4, 0, 4, 192)
+        data[192:196] = b'test'
+        fixture = self.root / 'uki-fixture'
+        fixture.write_bytes(data)
+        self.command('limine-mkinitcpio', '\n'.join([
+            *(f'printf rebuilt > {shlex.quote(str(image))}' for image in self.images),
+            *(f'cp {shlex.quote(str(fixture))} {shlex.quote(str(uki))}' for uki in self.ukis),
+            f'printf updated > {shlex.quote(str(self.limine_config))}',
+            'exit "${MOCK_BUILD_STATUS:-0}"',
+        ]))
+        self.command('lsinitcpio',
+                     'mkdir -p etc/modprobe.d\n'
+                     'if [[ ${MOCK_BAD_UKI:-0} != 1 ]]; then\n'
+                     f'cp {shlex.quote(str(self.config))} etc/modprobe.d/apple-keyboard.conf\nfi')
+
+    def test_limine_rebuilds_and_verifies_actual_boot_ukis(self):
+        self.add_limine()
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count('Verified keyboard configuration in'), 2)
+        self.assertEqual(self.limine_config.read_text(), 'updated')
+        self.assertTrue(all(p.read_bytes()[64:68] == b'PE\0\0' for p in self.ukis))
+
+    def test_limine_failure_restores_ukis_boot_config_and_raw_images(self):
+        self.add_limine()
+        result = self.run_script(MOCK_BUILD_STATUS='42')
+        self.assertEqual(result.returncode, 42, result.stderr)
+        self.assert_original()
+        self.assertEqual(self.limine_config.read_text(), 'original boot configuration')
+        self.assertTrue(all(p.read_text() == 'original UKI' for p in self.ukis))
+
+    def test_stale_uki_is_failure_even_if_builder_reports_success(self):
+        self.add_limine()
+        result = self.run_script(MOCK_BAD_UKI='1')
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertIn('missing or stale', result.stderr)
+        self.assert_original()
+        self.assertEqual(self.limine_config.read_text(), 'original boot configuration')
+        self.assertTrue(all(p.read_text() == 'original UKI' for p in self.ukis))
 
 
 if __name__ == '__main__':

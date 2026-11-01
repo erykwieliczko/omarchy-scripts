@@ -6,6 +6,7 @@ Boot your installed Omarchy system, open a terminal as your desktop user, and ru
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/install-mac-kde-ultimate-wip.sh | bash -
+curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/setup-mac-keyboard.sh | bash -
 curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/install-mac-steam-ultimate-wip.sh | bash -
 ```
 
@@ -13,6 +14,8 @@ Reboot once, log into **Omarchy (KDE Plasma)** with your normal password, and op
 **Steam (Mac Ultimate WIP)**. Sign into Steam, install **Age of Empires II:
 Definitive Edition**, and play. Steam downloads its compatibility tools normally;
 the launcher applies the tested Vulkan and keyboard repairs automatically.
+
+The keyboard script applies the PC modifier/F-key layout described below.
 
 The Steam script installs the qualified M3 display kernel, selects it for the next
 boot, enables the panel timestamp fix, and disables costly KVM idle polling.
@@ -73,7 +76,7 @@ The script asks for sudo and applies all three settings:
 - **F1–F12 by default:** press F11 alone to send F11.
 - **Fn ↔ left Ctrl:** the physical Fn key becomes Ctrl, and the physical left Ctrl key becomes Fn. Hold **physical left Ctrl** with the top row for volume, brightness, and media controls.
 
-Changes take effect immediately and survive reboot, including at the login screen. The script uses the kernel's built-in `hid_apple` settings, saves `/etc/modprobe.d/apple-keyboard.conf`, and runs `mkinitcpio -P` to include the configuration in the boot images. It is independent of KDE or Hyprland and can be run again.
+Changes take effect immediately and survive reboot, including at the login screen. The script uses the kernel's built-in `hid_apple` settings and saves `/etc/modprobe.d/apple-keyboard.conf`. On Omarchy's active Limine setup it uses `limine-mkinitcpio` and verifies that every installed kernel's generated UKI contains the configuration. Other boot setups use `mkinitcpio -P`. It is independent of KDE or Hyprland and can be run again.
 
 Check support and current settings without changing anything:
 
@@ -81,6 +84,6 @@ Check support and current settings without changing anything:
 curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/setup-mac-keyboard.sh | bash -s -- --check
 ```
 
-Each installation backs up the previous configuration, live driver values, and `/boot/initramfs-*.img` files under `/var/lib/omarchy-mac-keyboard/backups/`. If configuration, rebuilding, or live activation fails, the script attempts to restore them automatically. To undo a successful installation, restore `apple-keyboard.conf` from the chosen backup (or remove `/etc/modprobe.d/apple-keyboard.conf` if that backup has no configuration file), run `sudo mkinitcpio -P`, and reboot. The `before-*` files record the previous live values.
+Each installation backs up the previous configuration, live driver values, raw initramfs files, and (when active) Limine's UKIs and boot configuration under `/var/lib/omarchy-mac-keyboard/backups/`. Boot artifacts retain their full paths under each backup's `boot-files/`; `boot-files.list` records them. If configuration, rebuilding, verification, or live activation fails, the script attempts to restore them automatically. To undo a successful installation, restore `apple-keyboard.conf` from the chosen backup (or remove `/etc/modprobe.d/apple-keyboard.conf` if that backup has no configuration file), rebuild with `sudo limine-mkinitcpio` on Limine or `sudo mkinitcpio -P` otherwise, and reboot. The `before-*` files record the previous live values.
 
-Validated on the 14-inch M3 Pro running Omarchy / Arch Linux ARM, kernel `7.2.11-11-dsc3-ARCH`. Other Apple Silicon models require the same three driver parameters; `--check` verifies their availability.
+Validated on both a fresh M1 MacBook Air and a 14-inch M3 Pro running Omarchy / Arch Linux ARM, kernel `7.2.11-13-1-ARCH`, including the generated UKI contents. The previous raw-initramfs-only script left the active UKI unchanged; the Limine frontend fixes that persistence bug. Ten tests cover installation, piped sudo, conflicts, failed rebuilds, stale UKIs and restoration of the boot configuration. Other Apple Silicon models require the same three driver parameters; `--check` verifies their availability.

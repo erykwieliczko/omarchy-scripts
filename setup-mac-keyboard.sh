@@ -64,8 +64,34 @@ main() {
     images=(/boot/initramfs-*.img)
     shopt -u nullglob
     (( ${#images[@]} )) || die 'No /boot/initramfs-*.img images found; nothing changed.'
-    for image in "${images[@]}"; do
-        cp -a --reflink=auto -- "$image" "$backup/"
+    rebuild=(mkinitcpio -P)
+    boot_files=("${images[@]}")
+    esp=
+    if [[ -f /var/lib/omarchy/limine.enabled && -f /etc/default/limine ]]; then
+        for tool in limine-mkinitcpio python3 lsinitcpio; do
+            command -v "$tool" >/dev/null || die "Required Limine command is missing: $tool"
+        done
+        esp=$(python3 - /etc/default/limine <<'PY'
+from pathlib import Path
+import re, sys
+text = Path(sys.argv[1]).read_text()
+match = re.search(r'''^ESP_PATH=["']?(/[^"'\n]*)["']?\s*$''', text, re.M)
+if not match:
+    raise SystemExit('Cannot identify the Limine ESP path')
+print(match[1])
+PY
+        )
+        [[ -f $esp/limine.conf ]] || die 'The active Limine configuration is missing.'
+        shopt -s nullglob
+        ukis=("$esp"/EFI/Linux/*.efi)
+        shopt -u nullglob
+        boot_files+=("$esp/limine.conf" "${ukis[@]}")
+        rebuild=(limine-mkinitcpio)
+    fi
+    install -d -m700 "$backup/boot-files"
+    printf '%s\0' "${boot_files[@]}" > "$backup/boot-files.list"
+    for image in "${boot_files[@]}"; do
+        cp -a --parents --reflink=auto -- "$image" "$backup/boot-files/"
     done
 
     changed=0
@@ -86,8 +112,8 @@ main() {
                 cat "$backup/before-$name" > "$parameters/$name" || restore_failed=1
             done
             if (( rebuilding )); then
-                for image in "${images[@]}"; do
-                    cp -a --reflink=auto -- "$backup/${image##*/}" "$image" || restore_failed=1
+                for image in "${boot_files[@]}"; do
+                    cp -a --reflink=auto -- "$backup/boot-files$image" "$image" || restore_failed=1
                 done
             fi
             if (( restore_failed )); then
@@ -132,7 +158,50 @@ EOF
     echo "Backups: $backup"
     echo 'Rebuilding boot images with the saved keyboard settings...'
     rebuilding=1
-    mkinitcpio -P 2>&1 | tee "$backup/mkinitcpio.log"
+    "${rebuild[@]}" 2>&1 | tee "$backup/mkinitcpio.log"
+    if [[ -n $esp ]]; then
+        # A successful raw initramfs build does not update a bootable UKI.
+        # Verify the actual installed-kernel UKIs before accepting the change.
+        python3 - "$config" "$esp" /etc/default/limine /etc/mkinitcpio.d /etc/machine-id <<'PY'
+from pathlib import Path
+import re, struct, subprocess, sys, tempfile
+config, esp, defaults, presets, machine = map(Path, sys.argv[1:])
+text = defaults.read_text()
+if re.search(r'''^ENABLE_UKI=["']?yes["']?\s*$''', text, re.M):
+    match = re.search(r'''^CUSTOM_UKI_NAME=["']?([a-z0-9]+)["']?\s*$''', text, re.M)
+    prefix = match[1] if match else machine.read_text().strip()
+    kernels = sorted(presets.glob('*.preset'))
+    if not kernels:
+        raise SystemExit('No installed kernel presets to verify')
+    for kernel in kernels:
+        uki = esp / 'EFI/Linux' / f'{prefix}_{kernel.stem}.efi'
+        data = uki.read_bytes()
+        pe, = struct.unpack_from('<I', data, 0x3c)
+        if data[pe:pe+4] != b'PE\0\0':
+            raise SystemExit(f'Invalid UKI: {uki}')
+        count, = struct.unpack_from('<H', data, pe+6)
+        optional, = struct.unpack_from('<H', data, pe+20)
+        initrd = None
+        for index in range(count):
+            section = pe+24+optional+40*index
+            if data[section:section+8].rstrip(b'\0') == b'.initrd':
+                size, _, _, offset = struct.unpack_from('<IIII', data, section+8)
+                initrd = data[offset:offset+size]
+                if len(initrd) != size:
+                    raise SystemExit(f'Truncated UKI initrd: {uki}')
+        if initrd is None:
+            raise SystemExit(f'No initrd in UKI: {uki}')
+        with tempfile.TemporaryDirectory(prefix='mac-keyboard-verify-') as directory:
+            image = Path(directory) / 'initrd.img'
+            image.write_bytes(initrd)
+            subprocess.run(['lsinitcpio', '-x', str(image)], cwd=directory,
+                           check=True, stdout=subprocess.DEVNULL)
+            embedded = Path(directory) / 'etc/modprobe.d/apple-keyboard.conf'
+            if not embedded.is_file() or embedded.read_bytes() != config.read_bytes():
+                raise SystemExit(f'Keyboard configuration missing or stale in {uki}')
+        print(f'Verified keyboard configuration in {uki.name}')
+PY
+    fi
     for index in "${!names[@]}"; do
         printf '%s\n' "${values[$index]}" > "$parameters/${names[$index]}"
     done
