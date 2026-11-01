@@ -16,8 +16,8 @@ main() {
         echo 'Install Mac Steam Ultimate WIP requires Omarchy/Arch Linux ARM on Apple Silicon.' >&2
         return 1
     fi
-    revision=2a41e2b6c6f5c2308bc177529c040b1f18c200f0
-    archive_sha256=ff6c6c701ed07d9f10dbe9a34be90549a2854e4ac21683683f2c3d24deda778c
+    revision=fca4b5ef5cec607e058f26480b5c59ce8f901d1c
+    archive_sha256=e1f8831f7a3a90bcdde43f7d3f5a7b6edef5c5b84a5b1d3cde2f55b8bb0704c8
     bootstrap_dir=$(mktemp -d)
     trap 'rm -rf -- "$bootstrap_dir"' EXIT
     echo 'Downloading Install Mac Steam Ultimate WIP (pinned installer)...'
