@@ -139,7 +139,8 @@ def inside(account, arguments):
             registered.append(target)
         command = ['/usr/bin/python3', str(prefix / 'runtime/with-gamemode.py'),
                    str(prefix / 'runtime/guest-steam'), *arguments]
-        compatible = Path('/proc/device-tree/compatible').read_bytes().split(b'\0')
+        device_tree = Path('/proc/device-tree/compatible')
+        compatible = device_tree.read_bytes().split(b'\0') if device_tree.is_file() else []
         if b'apple,t6030' in compatible:
             # Preserve the physical CPU affinity used in the native comparison.
             command = ['/usr/bin/taskset', '-c', '0,7-10', *command]

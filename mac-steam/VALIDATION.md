@@ -1,5 +1,20 @@
 # Validation
 
+## Capability checks instead of device allowlists — 2026-11-02
+
+Removed the Steam installer's M1/M3 chip allowlist, rejection of other M3 Pro
+boards, and 16 KB host-only requirement. Native backend selection already probes
+actual 4 KB process support. The packaged display kernel is selected only for
+the hardware and Limine setup it repairs; other machines keep their existing
+kernel. KDE now requires Arch and Omarchy without CPU or Apple identity checks.
+Keyboard setup requires the actual hid_apple parameters and boot tools without
+machine, architecture or Omarchy identity checks. Regression fixtures exercise
+unknown chips, other M3 boards, missing device-tree identity and missing real
+dependencies. The redundant asahi-alarm repository-name requirement is also
+removed; pacman resolves those dependencies from configured repositories.
+Wine module hashes/version checks remain because that prebuilt
+module must match its companion binaries.
+
 ## Native M1 default correction — 2026-11-02
 
 The fresh-install launcher still restricted automatic native mode to the M3,

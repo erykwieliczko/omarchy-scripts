@@ -8,7 +8,7 @@ main() {
         --help|-h)
             printf '%s\n' 'Install Mac Steam Ultimate WIP' \
                 'Usage: bash install-mac-steam-ultimate-wip.sh [--check] [--user DESKTOP_ACCOUNT]' \
-                'For Omarchy/Arch ARM on Apple M1 (T8103) or M3 Pro (T6030).' \
+                'For Omarchy/Arch ARM with Apple Silicon graphics packages.' \
                 'Run from your normal desktop account; installation invokes sudo.'
             return 0 ;;
     esac

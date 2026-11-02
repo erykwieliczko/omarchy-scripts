@@ -17,12 +17,6 @@ main() {
         esac
     done
     die() { echo "Mac keyboard: $*" >&2; exit 1; }
-    [[ $(uname -m) == aarch64 && -f /etc/arch-release ]] ||
-        die 'Requires Omarchy/Arch Linux ARM on Apple Silicon.'
-    [[ -r /proc/device-tree/compatible ]] || die 'Cannot identify this Mac.'
-    tr '\0' '\n' < /proc/device-tree/compatible | grep -qx 'apple,arm-platform' ||
-        die 'Requires an Apple Silicon Mac.'
-    [[ -x /usr/bin/omarchy ]] || die 'Omarchy must be installed first.'
     for tool in mkinitcpio modprobe flock; do
         command -v "$tool" >/dev/null || die "Required command is missing: $tool"
     done

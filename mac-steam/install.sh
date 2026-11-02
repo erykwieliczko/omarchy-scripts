@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install Mac Steam Ultimate WIP — M1 / M3 Pro, Omarchy Apple Silicon.
+# Install Mac Steam Ultimate WIP — Omarchy Apple Silicon.
 set -euo pipefail
 project=$(cd -- "$(dirname -- "$0")" && pwd)
 release=mac-steam-ultimate-wip-v0.3.0
@@ -16,7 +16,7 @@ while (( $# )); do
         --help|-h)
             printf '%s\n' 'Install Mac Steam Ultimate WIP' \
                 'Usage: install.sh [--user DESKTOP_USER] [--check]' \
-                'Requires Omarchy/Arch ARM on Apple M1 (T8103) or M3 Pro (T6030).' \
+                'Requires Omarchy/Arch ARM and the Apple Silicon graphics packages.' \
                 'Run from your desktop account with sudo, or specify --user as root.'
             exit 0 ;;
         *) echo "Unknown argument: $1" >&2; exit 2 ;;
@@ -25,13 +25,9 @@ done
 die() { echo "Steam Ultimate: $*" >&2; exit 1; }
 [[ $(uname -m) == aarch64 ]] || die 'This installer requires an ARM64 Mac running Linux.'
 [[ -f /etc/arch-release ]] || die 'This installer requires Omarchy/Arch Linux ARM.'
-[[ -r /proc/device-tree/compatible ]] || die 'Cannot identify the Apple Silicon hardware.'
-tr '\0' '\n' < /proc/device-tree/compatible | grep -Exq 'apple,(t8103|t6030)' ||
-    die 'This WIP release supports M1 (T8103) and M3 Pro (T6030).'
-[[ $(getconf PAGESIZE) == 16384 ]] || die 'Expected the qualified 16K host kernel.'
-for repo in omarchy asahi-alarm; do
-    pacman-conf --repo-list | grep -qx "$repo" || die "Required pacman repository is missing: $repo"
-done
+# omarchy/steam is explicitly selected below; other dependencies may come from
+# any configured repository and are resolved by pacman during installation.
+pacman-conf --repo-list | grep -qx omarchy || die 'Required pacman repository is missing: omarchy'
 if [[ -z $target_user && $EUID != 0 ]]; then target_user=$(id -un); fi
 if [[ -z $target_user ]]; then
     target_user=$(loginctl list-sessions --no-legend | awk '$2 >= 1000 && $4 == "seat0" && $3 != "root" { print $3; exit }')
@@ -43,15 +39,15 @@ user_home=$(getent passwd "$target_user" | cut -d: -f6)
 [[ -d $user_home && $user_home == /* ]] || die 'The desktop home directory does not exist.'
 printf 'Target: %s (%s), kernel %s\n' "$target_user" "$user_home" "$(uname -r)"
 m3=0
-if tr '\0' '\n' < /proc/device-tree/compatible | grep -qx apple,t6030; then
-    tr '\0' '\n' < /proc/device-tree/compatible | grep -qx apple,j514s ||
-        die 'The packaged M3 kernel is qualified on the 14-inch M3 Pro (J514s).'
+# Select a hardware-specific display fix without restricting Steam installation.
+if [[ -r /proc/device-tree/compatible ]] &&
+        tr '\0' '\n' < /proc/device-tree/compatible | grep -qx apple,t6030 &&
+        tr '\0' '\n' < /proc/device-tree/compatible | grep -qx apple,j514s &&
+        [[ -f /etc/default/limine && -f /var/lib/omarchy/limine.enabled ]]; then
     m3=1
-    [[ -f /etc/default/limine && -f /var/lib/omarchy/limine.enabled ]] ||
-        die 'This M3 installation needs the normal Omarchy Limine boot setup.'
 fi
 if (( check_only )); then
-    echo 'Hardware and repository checks passed.'
+    echo 'Architecture, repository and desktop-account checks passed.'
     exit 0
 fi
 (( EUID == 0 )) || die 'Run the bootstrap as your normal user; it invokes sudo for installation.'
@@ -233,7 +229,7 @@ echo "Enable V-Sync in AoE2's advanced Graphics options for the tested responsiv
 echo 'The native M3 comparison reached the intro in about 26 seconds; first use still downloads runtimes and installs prerequisites.'
 echo 'GameMode requests the performance CPU governor while Steam runs and restores the previous setting when Steam closes.'
 echo 'Mixed-page kernels get user4k=on and rebuilt, verified boot images. Reboot once to activate it.'
-echo 'M1 and M3 use native FEX when 4 KB process support is active; --muvm keeps the VM path available.'
+echo 'Native FEX is selected when 4 KB process support is active; --muvm keeps the VM path available.'
 if (( m3 )); then
     echo 'Reboot once before playing: the qualified M3 display kernel is selected automatically.'
 fi

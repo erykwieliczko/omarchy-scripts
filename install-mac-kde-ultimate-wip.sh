@@ -12,8 +12,8 @@ main() {
                 '--activate closes the current graphical session after installation.'
             return 0 ;;
     esac
-    if [[ $(uname -m) != aarch64 || ! -f /etc/arch-release ]]; then
-        echo 'Install Mac KDE Ultimate WIP requires Omarchy/Arch Linux ARM on Apple Silicon.' >&2
+    if [[ ! -f /etc/arch-release ]]; then
+        echo 'Install Mac KDE Ultimate WIP requires Omarchy/Arch Linux.' >&2
         return 1
     fi
     revision=ed3f771f7ea79edf8b7de82d1445e7e0de0a881b

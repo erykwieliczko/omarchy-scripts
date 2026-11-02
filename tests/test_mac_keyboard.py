@@ -80,10 +80,20 @@ class MacKeyboard(unittest.TestCase):
         self.assert_original()
         self.assertFalse(self.backups.exists())
 
-    def test_unsupported_platform_is_rejected_before_changes(self):
-        result = self.run_script(MOCK_ARCH='x86_64')
-        self.assertNotEqual(result.returncode, 0)
+    def test_driver_capabilities_do_not_require_a_machine_identity(self):
+        for name in ('etc/arch-release', 'proc/device-tree/compatible', 'usr/bin/omarchy'):
+            (self.root / name).unlink()
+        result = self.run_script('--check', MOCK_ARCH='x86_64')
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assert_original()
+        self.assertFalse(self.backups.exists())
+
+    def test_missing_driver_parameter_is_rejected_before_changes(self):
+        (self.parameters / 'swap_fn_leftctrl').unlink()
+        result = self.run_script()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('lacks swap_fn_leftctrl', result.stderr)
+        self.assertEqual(self.config.read_text(), ORIGINAL)
         self.assertFalse(self.backups.exists())
 
     def test_install_and_repeat_preserve_backups(self):
