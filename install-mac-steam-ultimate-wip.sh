@@ -7,7 +7,8 @@ main() {
     case ${1:-} in
         --help|-h)
             printf '%s\n' 'Install Mac Steam Ultimate WIP' \
-                'Usage: bash install-mac-steam-ultimate-wip.sh [--check] [--user DESKTOP_ACCOUNT]' \
+                'Usage: bash install-mac-steam-ultimate-wip.sh [--check] [--user DESKTOP_ACCOUNT] [--steam-option-only]' \
+                '--steam-option-only installs the custom Steam option on an existing Ultimate setup without changing packages or boot setup.' \
                 'For Omarchy/Arch ARM with Apple Silicon graphics packages.' \
                 'Run from your normal desktop account; installation invokes sudo.'
             return 0 ;;
@@ -16,8 +17,8 @@ main() {
         echo 'Install Mac Steam Ultimate WIP requires Omarchy/Arch Linux ARM on Apple Silicon.' >&2
         return 1
     fi
-    revision=7c4a2d46e9bc4db7ffe3dd96eb01487fc4d8ce4f
-    archive_sha256=43525fc72925998436c0e303d5c4e1de5b5037d5362aecf745237a8a01713976
+    revision=6b3cdb57d11b74d550ca56f71caa4853023ee8ca
+    archive_sha256=e2dda66acf19c6a0a3b61748a9c68d1ec79fe7543e6acfc1272ae2ade4f96c3b
     bootstrap_dir=$(mktemp -d)
     trap 'rm -rf -- "$bootstrap_dir"' EXIT
     echo 'Downloading Install Mac Steam Ultimate WIP (pinned installer)...'
