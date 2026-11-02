@@ -27,6 +27,16 @@ default before Steam's first launch, without waiting for separate Valve tools.
   failure. The release retains this shipped template, and an archive regression
   checks its presence. Player compatibility prefixes are never packaged.
 
+The anonymous public `curl .../install-mac-steam-ultimate-wip.sh | bash -s --
+--user e --steam-option-only` pipeline passed on the M3 with its stack cache
+removed and its previous custom entry preserved outside Steam's discovery path.
+The release archive downloaded from GitHub, matched the pinned checksum, and
+registered a new tool and default. The public normal-user `--check` passed too.
+Fingerprints of the boot configuration, display module and privileged launcher
+were identical before and after. The user's working prefix was restored and
+temporary Proton logging removed. Payload commit: `6b3cdb57d11b74d550ca56f71caa4853023ee8ca`;
+public bootstrap pin: `a3b9d84`.
+
 The earlier custom-stack launch also passed 380 seconds of monitoring. The x86
 configuration previously passed a 10-minute menu / 15-minute skirmish run and a
 second healthy launch of about 26 minutes. Extended gameplay testing ended at
