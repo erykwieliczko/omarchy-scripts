@@ -24,7 +24,8 @@ without a chip or model allowlist.
 | Wine focus repair | `ValveSoftware/wine` `7b3ceaf8644bb5d57140903e12897efac69be16a` + `patches/wine/0001`, qualified for Proton Experimental `11.0-20261027b` |
 | M3 kernel | `omacom/linux-aurora` `3bdf11d3acb6ea1511b0611ddd40ac5336b7b215`, package `linux-aurora-dsc 7.2.11.aurora11-3.1`, kernel release `7.2.11-11-dsc3-ARCH` |
 | M3 kernel fixes | DSC sequencing, display/audio hold-link, Wi-Fi country map, native framebuffer retirement, optional T6030 swap timestamps |
-| Binary assets | New FEX r2 and userpages from `mac-steam-ultimate-wip-v0.3.0`; existing qualified components retain their `v0.2.0` URLs, all pinned by [SHA-256](artifacts.sha256) |
+| Custom Steam stack | x86 Proton Experimental `11.0-20261027b`, patched FEX, X11 focus repair and Steam Runtime `4.0.20261021.265997`, bundled in `mac-steam-ultimate-wip-v0.4.0` |
+| Binary assets | The stack is from `v0.4.0`, FEX r2 and userpages from `v0.3.0`, and existing qualified graphics/kernel components from `v0.2.0`, all pinned by [SHA-256](artifacts.sha256) |
 
 FEX is built with Steam support, bundled fmt/xxhash, release optimization, all
 three local fixes and upstream PR 6081. The tested configuration enables seccomp
@@ -36,7 +37,7 @@ and the muvm fallback. **Both launch paths and Valve's FEX compatibility tool us
 the private patched FEX**. Native mode adds two temporary binfmt registrations;
 they are removed when Steam exits. Existing distribution registrations remain.
 
-Steam, Proton, muvm, libkrun, virglrenderer and base rootfs/overlay packages come from configured Omarchy/Asahi repositories or Valve. They continue receiving their normal updates. This release pins our FEX/Mesa sources and binaries, not the entire operating system or proprietary Steam client.
+Steam, muvm, libkrun, virglrenderer and base rootfs/overlay packages come from configured Omarchy/Asahi repositories or Valve and continue receiving their normal updates. The custom Steam option additionally pins its own copies of Proton, FEX and Steam Runtime; Valve's separate Proton installations retain their normal update behavior. The operating system and proprietary Steam client are not pinned.
 
 System dependencies use a temporary official Arch Linux ARM `CacheServer` for
 base ARM repositories mirrored by Omarchy, covering missing mirror files.
@@ -46,6 +47,53 @@ policy. Full system upgrades stay in Omarchy's updater.
 Baseline used on 2026-10-31: native `omarchy/steam 1.0.0.87-1`, client build `1792618285`, `muvm 0.7.0-1`, `libkrun 1.19.7-1`, `virglrenderer 1.3.0-2`, `fex-emu-rootfs-arch 20260318-1`, base Mesa overlays `26.2.3-1`, host `mesa-aurora/vulkan-aurora 26.3.0-devel` at the same Mesa base commit, kernel `7.2.11-11-dsc3-ARCH`.
 
 ## Integration
+
+### Custom Proton option
+
+The installer downloads a checksum-pinned, prebuilt stack and registers **Mac
+Steam Ultimate (FEX + Proton 11)** under Steam's
+`compatibilitytools.d/mac-steam-ultimate/`, including before a user's first Steam
+launch. It contains x86 Proton/Wine with the verified X11 focus repair, our FEX
+binaries, the native Vulkan bridge, and Steam Runtime 4. No separate Valve tool
+download is needed. Files are copied with reflinks when available, never
+hardlinked to the system installation. Valve's shipped default prefix template
+is retained because Proton needs its DirectX DLL links; player prefixes,
+per-user settings and runtime deployment logs are excluded from the release.
+
+The option is selected as the initial global default. An existing AoE2 selection
+of x86 Proton Experimental follows the new entry; other explicitly chosen game
+tools are preserved. Configuration writes occur while Steam is stopped, with a
+`config/config.vdf.pre-mac-stack` backup. A minimal initial config is created when
+Steam has not been launched yet. Later manual choices are respected. The entry
+can also be selected per game in Properties → Compatibility.
+
+For an existing AoE2 ARM64 prefix, the preparer retains the complete original as
+`813780.arm64-before-mac-stack-TIMESTAMP`, copies Games/Documents/Saved Games and
+FEX configuration into a clean x86 compatibility directory, and lets Proton and
+Steam run first-use setup. This prevents incompatible ARM64 VC++ libraries from
+being carried into x86 Wine. Existing x86 prefixes remain in place. A failed save
+copy restores the original directory.
+
+Versions and source provenance are recorded in `stack.json`; Valve tool updates
+do not replace the bundle. A new bundled build is installed only while Steam is
+stopped, retaining the prior tool outside `compatibilitytools.d` so it cannot
+register a duplicate entry. The preparer can still build a local stack from
+installed Steam tools when no prebuilt bundle is supplied, after checking the
+qualified Proton version and companion hashes.
+
+On an existing Ultimate installation, use the normal public bootstrap with
+`--steam-option-only` to update this option and launcher integration without
+changing packages, kernel modules or boot configuration. The full command still
+performs the normal complete setup for a fresh system.
+
+The M3's Steam Settings page confirms the default. The real custom-tool launch
+loaded the bundled FEX executable, 126 bundled Wine modules and native Vulkan
+bridge, with no Wine modules from Valve's separate Proton directory. The original
+ARM64EC freeze remains unisolated between Wine, FEX and its surrounding userland.
+The x86 setup passed one 10-minute-menu/15-minute-skirmish run and a second healthy
+26-minute launch before extended gameplay checks ended at the owner's request.
+
+### Launcher and runtime preparation
 
 `steam-mac-ultimate` selects native FEX automatically with working mixed
 pages. `steam-mac-ultimate --muvm` explicitly selects the VM, and `--native`
@@ -193,6 +241,22 @@ python3 mac-steam/tests/focus-retry.py /path/to/patched-wine/dlls/winex11.drv/ev
 ```
 
 ## Rebuilding from source
+
+The complete Steam option can be packaged on the build machine from the qualified
+Steam tool downloads and the installed private component binaries:
+
+```bash
+python3 mac-steam/build/compat-stack.py \
+  --steam-root "$HOME/.local/share/Steam" \
+  --component-prefix /opt/mac-steam-ultimate/current \
+  --output /tmp/mac-steam-stack-11.0-20261027b-r1-aarch64.tar.zst
+```
+
+This copies only tool distributions, retains required Proton template data, adds
+the patched components and source/license notices, removes deployment state and
+records provenance. The resulting release archive is installed directly; users
+do not compile or construct their own stack.
+
 
 Build scripts create artifacts; they do not install a graphics stack or reboot a machine. Keep all patches with the scripts. Source commit IDs and submodule commits are pinned; package/toolchain updates can change the resulting binary hashes.
 

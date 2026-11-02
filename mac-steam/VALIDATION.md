@@ -1,5 +1,39 @@
 # Validation
 
+## Dedicated Steam compatibility option — 2026-11-02
+
+Release v0.4.0 adds the prebuilt `mac-steam-stack-11.0-20261027b-r1-aarch64.tar.zst`,
+SHA-256 `51d669ed05876e6a118401de50d35c46371a09684d5ec257551a9884da87db9e`.
+It registers **Mac Steam Ultimate (FEX + Proton 11)** and writes the initial
+default before Steam's first launch, without waiting for separate Valve tools.
+
+- 56 Steam regression tests and 14 shared tests pass; shell syntax and ShellCheck
+  0.11.0 pass. Coverage includes fresh registration without Valve tools, default
+  preservation, deferred upgrades/backups, ARM64-prefix save migration and
+  rollback, and a real archive check for required template data and excluded
+  player state.
+- A fresh Steam directory with no Valve tool manifests received the full entry
+  and its initial default. The installed copy is independent of the root-owned
+  bundle and uses reflinks where supported.
+- The option-only installer completed on the M3. An actual original ARM64 AoE2
+  prefix was preserved; saved games and FEX configuration were carried into a
+  clean x86 prefix. Steam performed its normal prerequisites, with no manual VC++
+  runtime installation. AoE2 reached its menu through the packaged FEX/Wine and
+  native Vulkan bridge, then passed 200 seconds of monitoring with no protection
+  record rewrite. It closed normally; the user's prior working x86 prefix was
+  restored after the migration test.
+- Cleaning the first candidate incorrectly removed Valve's `default_pfx`, which
+  contains required DirectX DLL links. The clean-prefix test caught the startup
+  failure. The release retains this shipped template, and an archive regression
+  checks its presence. Player compatibility prefixes are never packaged.
+
+The earlier custom-stack launch also passed 380 seconds of monitoring. The x86
+configuration previously passed a 10-minute menu / 15-minute skirmish run and a
+second healthy launch of about 26 minutes. Extended gameplay testing ended at
+the owner's request. These results do not isolate the original ARM64EC fault,
+qualify multiplayer, or resolve long-session memory growth.
+
+
 ## Capability checks instead of device allowlists — 2026-11-02
 
 Removed the Steam installer's M1/M3 chip allowlist, rejection of other M3 Pro

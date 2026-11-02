@@ -7,7 +7,9 @@ import socket
 import subprocess
 import sys
 
-MANAGER = Path('/opt/mac-steam-ultimate/current/fex/bin/FEXServerManager')
+bundled_manager = Path(__file__).resolve().with_name('FEXServerManager.native')
+MANAGER = (bundled_manager if bundled_manager.is_file()
+           else Path('/opt/mac-steam-ultimate/current/fex/bin/FEXServerManager'))
 
 
 def server_address(environment):

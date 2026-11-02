@@ -4,11 +4,13 @@ import argparse
 import fcntl
 import glob
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -233,6 +235,13 @@ def prepare(root, seen):
         merge_json(config / 'AppConfig/Steam_813780_AoE2DE_s.exe.json',
                    {'ThunksDB': {'AoEVulkan': 1}})
 
+    stack_module = PREFIX / 'runtime/compat_stack.py'
+    if stack_module.is_file():
+        spec = importlib.util.spec_from_file_location('compat_stack', stack_module)
+        stack = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(stack)
+        stack.prepare(root, paths, PREFIX)
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -252,7 +261,7 @@ def main():
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX)
                 prepare(root, seen)
-            except (OSError, ValueError) as error:
+            except (OSError, ValueError, subprocess.CalledProcessError) as error:
                 print(f'Steam Ultimate preparation: {error}', file=sys.stderr, flush=True)
                 if not args.watch:
                     return 1

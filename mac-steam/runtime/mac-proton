@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""Launch the bundled FEX, Steam Runtime and Proton as one Steam tool."""
+import os
+from pathlib import Path
+import sys
+
+
+def command(root, arguments, environment):
+    if not arguments:
+        raise ValueError('Steam must supply a Proton verb')
+    verb, *game = arguments
+    outer_verb = 'waitforexitandrun' if verb == 'waitforexitandrun' else 'run'
+    paths = [str(root), str(root / 'fex'), str(root / 'runtime'), str(root / 'proton')]
+    paths.extend(p for p in environment.get('STEAM_COMPAT_TOOL_PATHS', '').split(':') if p)
+    environment['STEAM_COMPAT_TOOL_PATHS'] = ':'.join(dict.fromkeys(paths))
+    return [str(root / 'fex/fex-compat-tool'), outer_verb, '--',
+            str(root / 'runtime/_v2-entry-point'), f'--verb={outer_verb}', '--',
+            str(root / 'proton/proton'), verb, *game]
+
+
+if __name__ == '__main__':
+    root = Path(__file__).resolve().parent
+    try:
+        argv = command(root, sys.argv[1:], os.environ)
+        os.execv(argv[0], argv)
+    except (OSError, ValueError) as error:
+        sys.exit(f'Mac Steam Ultimate: {error}')

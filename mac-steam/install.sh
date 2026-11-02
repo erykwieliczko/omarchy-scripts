@@ -2,20 +2,25 @@
 # Install Mac Steam Ultimate WIP — Omarchy Apple Silicon.
 set -euo pipefail
 project=$(cd -- "$(dirname -- "$0")" && pwd)
-release=mac-steam-ultimate-wip-v0.3.0
+release=mac-steam-ultimate-wip-v0.4.0
 # Existing qualified components retain their immutable v0.2.0 download URLs.
 base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/mac-steam-ultimate-wip-v0.2.0
-native_base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/$release
+native_base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/mac-steam-ultimate-wip-v0.3.0
+stack_base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/$release
+stack_archive=mac-steam-stack-11.0-20261027b-r1-aarch64.tar.zst
 target_user=${SUDO_USER:-}
 cache=/var/cache/mac-steam-ultimate
 check_only=0
+option_only=0
 while (( $# )); do
     case $1 in
         --user) target_user=${2:?--user needs an account name}; shift 2 ;;
         --check) check_only=1; shift ;;
+        --steam-option-only) option_only=1; shift ;;
         --help|-h)
             printf '%s\n' 'Install Mac Steam Ultimate WIP' \
-                'Usage: install.sh [--user DESKTOP_USER] [--check]' \
+                'Usage: install.sh [--user DESKTOP_USER] [--check] [--steam-option-only]' \
+                '--steam-option-only updates the Steam option using an existing Ultimate installation, without changing packages or boot setup.' \
                 'Requires Omarchy/Arch ARM and the Apple Silicon graphics packages.' \
                 'Run from your desktop account with sudo, or specify --user as root.'
             exit 0 ;;
@@ -59,24 +64,37 @@ flock -n 8 || die 'Close native Steam and its games, then rerun this installer.'
 if pgrep -u "$uid" -f '^([^ ]*/)?muvm([[:space:]]|$)' >/dev/null || pgrep -u "$uid" -x steam >/dev/null; then
     die 'Close Steam and other muvm applications, then rerun this installer so they can use the new drivers.'
 fi
-[[ $(df --output=avail -k /opt | tail -1) -gt 6291456 ]] || die 'At least 6 GiB of free disk space is required.'
+if (( option_only )); then
+    existing=$(readlink -f /opt/mac-steam-ultimate/current || :)
+    for component in fex mesa-aarch64 overlays userpages runtime wine-focus; do
+        [[ -d $existing/$component ]] || die '--steam-option-only requires an existing Mac Steam Ultimate installation.'
+    done
+fi
+[[ $(df --output=avail -k /opt | tail -1) -gt 10485760 ]] || die 'At least 10 GiB of free disk space is required.'
+[[ $(df --output=avail -k "$user_home" | tail -1) -gt 3145728 ]] || die 'At least 3 GiB free in the desktop home filesystem is required.'
 # Use the native ARM Steam package explicitly: asahi-alarm/steam is the older x86 wrapper.
 # Keep Omarchy's update policy and use a package cache for missing ARM mirror files.
 # shellcheck source=../common/pacman-install.sh
 source "$project/../common/pacman-install.sh"
-mac_install_packages omarchy/steam muvm FEX-Emu fex-emu-rootfs-arch \
-    mesa-fex-emu-overlay-x86_64 mesa-fex-emu-overlay-i386 omarchy-steam-fex \
-    erofs-utils python curl zstd vulkan-tools gamemode polkit
+if (( ! option_only )); then
+    mac_install_packages omarchy/steam muvm FEX-Emu fex-emu-rootfs-arch \
+        mesa-fex-emu-overlay-x86_64 mesa-fex-emu-overlay-i386 omarchy-steam-fex \
+        erofs-utils python curl zstd vulkan-tools gamemode polkit
 # Use the package's narrowly scoped Polkit rule for temporary CPU governor requests.
 # Polkit sees this membership immediately; no password prompt or new login is needed.
-usermod -aG gamemode "$target_user"
+    usermod -aG gamemode "$target_user"
+fi
 mkdir -p "$cache" /opt/mac-steam-ultimate/releases
 while read -r hash file; do
     [[ $file && $hash ]] || continue
+    if (( option_only )) && [[ $file != "$stack_archive" ]]; then continue; fi
     [[ $file != linux-aurora-dsc-* || $m3 == 1 ]] || continue
     if ! printf '%s  %s\n' "$hash" "$cache/$file" | sha256sum --check --status 2>/dev/null; then
         asset_base=$base
-        case $file in fex-aoe2-b608a4767-r2-*|userpages-*) asset_base=$native_base ;; esac
+        case $file in
+            fex-aoe2-b608a4767-r2-*|userpages-*) asset_base=$native_base ;;
+            mac-steam-stack-*) asset_base=$stack_base ;;
+        esac
         curl --fail --location --retry 3 --proto '=https' --tlsv1.2 "$asset_base/$file" -o "$cache/$file.part"
         printf '%s  %s\n' "$hash" "$cache/$file.part" | sha256sum --check --status || die "Checksum mismatch: $file"
         mv "$cache/$file.part" "$cache/$file"
@@ -101,6 +119,10 @@ cleanup() {
 }
 trap cleanup EXIT
 chmod 755 "$stage"
+if (( option_only )); then
+    cp -a --reflink=auto "$existing/." "$stage/"
+    rm -rf -- "$stage/compat-stack"
+else
 mkdir -p "$stage/fex" "$stage/mesa-aarch64" "$stage/runtime" "$stage/wine-focus" "$stage/userpages"
 tar --zstd -xf "$cache/fex-aoe2-b608a4767-r2-aarch64.tar.zst" -C "$stage/fex"
 tar --zstd -xf "$cache/userpages-3bdf11d3-r1-aarch64.tar.zst" -C "$stage/userpages"
@@ -118,11 +140,15 @@ if (( m3 )); then
 fi
 bash "$project/build/overlays.sh" "$stage/x86-stage" "$stage/overlays" > "$cache/overlays.log" 2>&1
 rm -rf "$stage/x86-stage"
+fi
+mkdir -p "$stage/compat-stack"
+tar --zstd -xf "$cache/$stack_archive" -C "$stage/compat-stack"
 cp -a "$project/runtime/." "$stage/runtime/"
 chmod 755 "$stage/runtime/"*
 cp "$project/artifacts.sha256" "$stage/"
 # A normal-user bootstrap owns its checkout; installed system files belong to root.
 chown -R root:root "$stage"
+if (( ! option_only )); then
 for library in libvulkan_asahi.so libgallium-26.3.0-devel.so libEGL_mesa.so.0 libGLX_mesa.so.0 libgbm.so.1 dri/libdril_dri.so gbm/dri_gbm.so; do
     [[ -f /usr/lib/$library ]] || die "System Mesa layout has changed: /usr/lib/$library"
 done
@@ -155,6 +181,7 @@ if [[ -e /usr/share/guestos/fex-mesa && ! -L /usr/share/guestos/fex-mesa ]]; the
     die '/usr/share/guestos/fex-mesa already exists and is not a symlink.'
 fi
 ln -sfn /run/fex-emu/rootfs /usr/share/guestos/fex-mesa
+fi
 installed=/opt/mac-steam-ultimate/releases/$release-$(date +%Y%m%dT%H%M%S)-$$
 mv "$stage" "$installed"
 if [[ -L /opt/mac-steam-ultimate/current ]]; then
@@ -163,6 +190,7 @@ fi
 ln -sfn "$installed" /opt/mac-steam-ultimate/current.new
 mv -Tf /opt/mac-steam-ultimate/current.new /opt/mac-steam-ultimate/current
 activated=1
+if (( ! option_only )); then
 install -d /usr/local/bin
 install -d /usr/local/libexec /etc/polkit-1/rules.d
 # pkexec canonicalizes executable symlinks before consulting its policy. Keep
@@ -199,7 +227,9 @@ for name in steam omarchy-launch-steam; do
     fi
     ln -s /opt/mac-steam-ultimate/current/runtime/steam-host "$destination"
 done
+fi
 runuser -u "$target_user" -- python3 /opt/mac-steam-ultimate/current/runtime/prepare.py
+if (( ! option_only )); then
 applications=$user_home/.local/share/applications
 install -d -o "$target_user" -g "$(id -gn "$target_user")" "$applications"
 desktop=$applications/steam.desktop
@@ -222,15 +252,19 @@ EOF
 chown "$target_user:$(id -gn "$target_user")" "$desktop"
 runuser -u "$target_user" -- update-desktop-database "$applications" || :
 runuser -u "$target_user" -- xdg-mime default steam.desktop x-scheme-handler/steam x-scheme-handler/steamlink || :
+fi
 echo 'Installed! Open Steam (Mac Ultimate WIP) from your app launcher, or run steam-mac-ultimate.'
-echo 'Sign in normally, install AoE2 DE, and use Proton Experimental. Steam supplies its own FEX tool and Vulkan bridge.'
-echo 'The launcher applies the pinned AoE2 fixes when that tool finishes downloading.'
+echo 'Mac Steam Ultimate (FEX + Proton 11) is installed as a Steam compatibility option and selected as the initial default.'
+echo 'It bundles the tested x86 Proton/Wine, patched FEX, native Vulkan bridge and Steam Runtime 4; no separate Valve tool download is required.'
+echo "Find it in Steam Settings > Compatibility or in a game's Properties > Compatibility. Later manual choices are preserved."
+echo 'Existing ARM64 AoE2 prefixes are backed up, with saves copied into a fresh x86 prefix before Steam starts.'
 echo "Enable V-Sync in AoE2's advanced Graphics options for the tested responsive-cursor setup."
-echo 'The native M3 comparison reached the intro in about 26 seconds; first use still downloads runtimes and installs prerequisites.'
+if (( ! option_only )); then
 echo 'GameMode requests the performance CPU governor while Steam runs and restores the previous setting when Steam closes.'
 echo 'Mixed-page kernels get user4k=on and rebuilt, verified boot images. Reboot once to activate it.'
 echo 'Native FEX is selected when 4 KB process support is active; --muvm keeps the VM path available.'
-if (( m3 )); then
+if (( m3 && ! option_only )); then
     echo 'Reboot once before playing: the qualified M3 display kernel is selected automatically.'
+fi
 fi
 echo "Installer log: $cache/overlays.log"

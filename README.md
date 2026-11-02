@@ -12,12 +12,14 @@ curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/
 
 Reboot once, log into **Omarchy (KDE Plasma)** with your normal password, and open
 **Steam (Mac Ultimate WIP)**. Sign into Steam, install **Age of Empires II:
-Definitive Edition**, and play. Steam downloads its compatibility tools normally;
-the launcher applies the tested Vulkan and keyboard repairs automatically.
+Definitive Edition**, and play. **Mac Steam Ultimate (FEX + Proton 11)** is
+already installed as Steam's default
+compatibility option, including the tested Wine, FEX, Steam Runtime and Vulkan
+bridge. First launch runs the game's usual prerequisite installers.
 
 After runtime setup, the native M3 test reached AoE2's intro in about 26.5 seconds.
-First use also downloads Steam's compatibility tools and runs prerequisite
-installers; watch Steam's setup progress before retrying.
+First use downloads Steam client components and runs prerequisite installers;
+watch Steam's setup progress before retrying.
 
 The keyboard script applies the PC modifier/F-key layout described below.
 The KDE and Steam installers use an official Arch Linux ARM package cache to
@@ -46,9 +48,19 @@ curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/
 
 The script asks for sudo, downloads a pinned installer and checksum-verified binaries, installs the required packages, and adds **Steam (Mac Ultimate WIP)** to the app launcher. You can also launch it with `steam-mac-ultimate`.
 
-Sign in to Steam normally and install AoE2 DE. The tested native ARM Steam client uses **Proton Experimental** through its FEX compatibility layer. The launcher applies our pinned FEX build when that download completes, including after subsequent tool updates. Exit Steam and reopen it if a tool update happened while a game was running.
+Sign in to Steam normally and install AoE2 DE. **Mac Steam Ultimate (FEX + Proton 11)** is installed as a real Steam compatibility option and selected as the initial default before Steam starts. Find it under **Steam → Settings → Compatibility**, or per game under **Properties → Compatibility**. The bundled x86 Wine/Proton, patched FEX and Steam Runtime are pinned independently of Valve's Experimental updates; no separate Valve tool download is needed. Later manual compatibility choices are respected. Existing ARM64 AoE2 prefixes are backed up and their saves copied into a clean x86 prefix.
 
-The installer is repeatable, keeps backups of replaced Steam files, and supports a root invocation with `--user YOUR_ACCOUNT`. Close existing Steam/muvm applications before installing. A first installation downloads roughly 1 GB before Steam's own client/runtime downloads. Keep at least 6 GiB free, plus space for games.
+The installer is repeatable, keeps backups of replaced Steam files, and supports a root invocation with `--user YOUR_ACCOUNT`. Close existing Steam/muvm applications before installing. A first installation downloads the checksum-verified runtime bundle and system components before Steam's own client and game downloads. Keep at least 10 GiB free, including 3 GiB in your home filesystem, plus space for games.
+
+To add or update just the Steam option on an existing Ultimate installation,
+close Steam and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/install-mac-steam-ultimate-wip.sh | bash -s -- --steam-option-only
+```
+
+This mode reuses the installed graphics/page-size setup and updates the pinned
+stack and launcher integration without package or boot changes.
 
 GameMode requests the performance CPU governor while Steam runs in either mode,
 then restores the previous governors on exit.
