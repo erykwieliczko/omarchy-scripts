@@ -8,8 +8,9 @@ arguments. Reboot once after installation. No kernel compilation is required.
 Windows games use Proton and FEX. A root-owned helper prepares a private mount
 namespace and drops privileges before starting Steam as your desktop account.
 The same private ARM Mesa and x86 EROFS overlays are used in both launch modes;
-the desktop's Mesa mounts stay separate. **muvm remains available as a fallback**
-and stays the default on the M1 until native mode is tested there.
+the desktop's Mesa mounts stay separate. **muvm remains available as a fallback**.
+Both supported chips select native FEX automatically when 4 KB process support
+is active.
 
 ## Pinned components
 
@@ -46,7 +47,7 @@ Baseline used on 2026-10-31: native `omarchy/steam 1.0.0.87-1`, client build `17
 
 ## Integration
 
-`steam-mac-ultimate` selects native FEX automatically on an M3 with working mixed
+`steam-mac-ultimate` selects native FEX automatically on an M1 or M3 with working mixed
 pages. `steam-mac-ultimate --muvm` explicitly selects the VM, and `--native`
 requires native mode. Close Steam and its games before switching. If native
 support is unavailable, automatic mode uses muvm. Native mode does not require
@@ -169,8 +170,9 @@ The M3 Pro restoration exercised the 4K VM, private GPU driver, x86 Vulkan place
 
 The preceding r1 binary release passed the 4K VM, FEX signal/SMC regressions,
 placed-mapping guard and 120-frame native Vulkan rendering check on an M1
-MacBook Air. The new r2 build and native mode have not been tested on the M1;
-it keeps the muvm default. M1 validation is separate from the M3 game result.
+MacBook Air. The new r2 build and native Steam have also been checked on the M1;
+AoE2 gameplay with native FEX on the M1 remains unverified. M1 validation is
+separate from the M3 game result.
 
 When the KDE installer is present, both launch paths also mount its idle
 browser-integration helper over the native host inside the Steam namespace.

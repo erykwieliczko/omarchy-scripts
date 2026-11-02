@@ -1,5 +1,15 @@
 # Validation
 
+## Native M1 default correction — 2026-11-02
+
+The fresh-install launcher still restricted automatic native mode to the M3,
+despite enabling `user4k=on` on both machines. The M1 now selects native FEX
+whenever the normal-user 4 KB probe succeeds, with the same explicit `--muvm`
+fallback. Its stock `7.2.11-14-1-ARCH` kernel supports the probe. In the native
+mount namespace, the pinned r2 FEX executes x86 `uname` successfully and the
+private Vulkan driver enumerates Apple M1 (G13G B1). No libkrun VM is running.
+AoE2 gameplay in native M1 mode remains a separate, unverified test.
+
 ## Fresh-image mirror recovery — 2026-11-02
 
 Fresh M1 and M3 installations on `7.2.11-14-1-ARCH` exposed an Omarchy ARM mirror

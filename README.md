@@ -27,7 +27,7 @@ and signature checks stay under Omarchy's configuration.
 The Steam script installs the qualified M3 display kernel, selects it for the next
 boot, enables the panel timestamp fix, and disables costly KVM idle polling.
 It also enables `user4k=on` in the persistent boot configuration and verifies the
-rebuilt boot images. After reboot, the M3 uses **native FEX with 4KB process pages**
+rebuilt boot images. After reboot, both M1 and M3 use **native FEX with 4KB process pages**
 on the 16KB host; `steam-mac-ultimate --muvm` keeps the VM fallback available.
 Everything is downloaded as checksum-verified binaries; installation does not
 compile FEX, Mesa, Wine or the kernel. Your resolution and graphics quality remain

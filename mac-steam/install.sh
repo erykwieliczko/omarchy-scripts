@@ -233,7 +233,7 @@ echo "Enable V-Sync in AoE2's advanced Graphics options for the tested responsiv
 echo 'The native M3 comparison reached the intro in about 26 seconds; first use still downloads runtimes and installs prerequisites.'
 echo 'GameMode requests the performance CPU governor while Steam runs and restores the previous setting when Steam closes.'
 echo 'Mixed-page kernels get user4k=on and rebuilt, verified boot images. Reboot once to activate it.'
-echo 'The tested M3 uses native FEX when 4 KB process support is active; --muvm keeps the VM path available.'
+echo 'M1 and M3 use native FEX when 4 KB process support is active; --muvm keeps the VM path available.'
 if (( m3 )); then
     echo 'Reboot once before playing: the qualified M3 display kernel is selected automatically.'
 fi
