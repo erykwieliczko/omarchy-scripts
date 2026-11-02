@@ -1,23 +1,39 @@
 # Install Mac Steam Ultimate WIP
 
-The native ARM Steam client runs inside **muvm's 4K-page Linux guest** on the Mac's 16K-page host. Windows games use Proton and FEX. The private ARM Mesa stack is bind-mounted over the guest's Mesa libraries during VM startup. The x86 Mesa stacks are 4K EROFS overlays on the Arch FEX rootfs. These mounts belong to the guest kernel.
+On the tested M3 Pro, the native ARM Steam client and FEX run **directly on the
+16K host with 4K process mappings**. The installer enables Aurora's mixed-page
+support with `user4k=on`, rebuilds the boot images, and verifies their embedded
+arguments. Reboot once after installation. No kernel compilation is required.
+
+Windows games use Proton and FEX. A root-owned helper prepares a private mount
+namespace and drops privileges before starting Steam as your desktop account.
+The same private ARM Mesa and x86 EROFS overlays are used in both launch modes;
+the desktop's Mesa mounts stay separate. **muvm remains available as a fallback**
+and stays the default on the M1 until native mode is tested there.
 
 ## Pinned components
 
 | Component | Source/version |
 | --- | --- |
 | FEX | [StonkGuy/FEX](https://github.com/StonkGuy/FEX/tree/b608a47670de0ce6cca519858c2e57a2590344da), `b608a47670de0ce6cca519858c2e57a2590344da`, from `eac-2610` |
-| FEX local fixes | `patches/fex/0002`–`0004`: invalid opcode handling on hot SMC pages, larger hot-page tracking, constant-time IR block append |
+| FEX fixes | `patches/fex/0002`–`0004`: invalid opcode handling on hot SMC pages, larger hot-page tracking, constant-time IR block append; `0006`: upstream PR 6081 by jgoyvaerts, avoiding duplicate concurrent compilation |
+| Mixed-page launcher | Unmodified `tools/aurora-userpages` from `omacom/linux-aurora` `3bdf11d3acb6ea1511b0611ddd40ac5336b7b215`, with corresponding source in its archive |
 | Mesa, ARM64 + x86-64 + i386 | [omacom/mesa](https://github.com/omacom/mesa/tree/672657e05e6b382a0203975f7a26c46f9a674973), `672657e05e6b382a0203975f7a26c46f9a674973` |
 | Mesa local fixes | `patches/mesa/0001`–`0005`: M3 G15 virtio wire conversion, queue priority limits, VM status handling, placed mapping bounds, host-backed memory accounting |
 | Wine focus repair | `ValveSoftware/wine` `7b3ceaf8644bb5d57140903e12897efac69be16a` + `patches/wine/0001`, qualified for Proton Experimental `11.0-20261027b` |
 | M3 kernel | `omacom/linux-aurora` `3bdf11d3acb6ea1511b0611ddd40ac5336b7b215`, package `linux-aurora-dsc 7.2.11.aurora11-3.1`, kernel release `7.2.11-11-dsc3-ARCH` |
 | M3 kernel fixes | DSC sequencing, display/audio hold-link, Wi-Fi country map, native framebuffer retirement, optional T6030 swap timestamps |
-| Binary assets | GitHub release `mac-steam-ultimate-wip-v0.2.0`, pinned by [SHA-256](artifacts.sha256) |
+| Binary assets | New FEX r2 and userpages from `mac-steam-ultimate-wip-v0.3.0`; existing qualified components retain their `v0.2.0` URLs, all pinned by [SHA-256](artifacts.sha256) |
 
-FEX is built with Steam support, bundled fmt/xxhash, release optimization and all three local fixes. The tested configuration enables seccomp fidelity and uses `SMCHotPageFaults=32`, reduced x87 precision and no disk code cache. Profiling is disabled for normal use.
+FEX is built with Steam support, bundled fmt/xxhash, release optimization, all
+three local fixes and upstream PR 6081. The tested configuration enables seccomp
+fidelity and uses `SMCHotPageFaults=32`, reduced x87 precision and no disk code
+cache. Profiling is disabled for normal use.
 
-The distribution's `FEX-Emu` package remains a muvm prerequisite. **The Steam VM and Valve FEX compatibility tool use the private patched FEX**, rather than that package's older executable. The guest binfmt registration points directly at the private FEX binary.
+The distribution's `FEX-Emu` package remains installed for its integration files
+and the muvm fallback. **Both launch paths and Valve's FEX compatibility tool use
+the private patched FEX**. Native mode adds two temporary binfmt registrations;
+they are removed when Steam exits. Existing distribution registrations remain.
 
 Steam, Proton, muvm, libkrun, virglrenderer and base rootfs/overlay packages come from configured Omarchy/Asahi repositories or Valve. They continue receiving their normal updates. This release pins our FEX/Mesa sources and binaries, not the entire operating system or proprietary Steam client.
 
@@ -25,16 +41,24 @@ Baseline used on 2026-10-31: native `omarchy/steam 1.0.0.87-1`, client build `17
 
 ## Integration
 
-Files live under `/opt/mac-steam-ultimate/releases/`; `current` selects the active installation and `previous` retains the preceding one. Distribution-owned Mesa/FEX executables are preserved on the host. Steam's user desktop entry launches `/usr/local/bin/steam-mac-ultimate`; its previous entry is saved as `steam.desktop.pre-ultimate`. `/usr/local/bin/steam` and `/usr/local/bin/omarchy-launch-steam` route command-line launches, game shortcuts and Omarchy bindings through the same setup; existing local commands are backed up as `*.pre-ultimate`. Inside the 4K guest the wrapper selects `/usr/bin/steam` directly.
+`steam-mac-ultimate` selects native FEX automatically on an M3 with working mixed
+pages. `steam-mac-ultimate --muvm` explicitly selects the VM, and `--native`
+requires native mode. Close Steam and its games before switching. If native
+support is unavailable, automatic mode uses muvm. Native mode does not require
+sudo or a password prompt from the active local desktop account: a narrowly
+scoped Polkit rule permits only the installed root-owned setup helper. Steam,
+FEX, Proton and the preparer run as the desktop account.
+
+Files live under `/opt/mac-steam-ultimate/releases/`; `current` selects the active installation and `previous` retains the preceding one. Distribution-owned Mesa/FEX executables are preserved on the host. Steam's user desktop entry launches `/usr/local/bin/steam-mac-ultimate`; its previous entry is saved as `steam.desktop.pre-ultimate`. `/usr/local/bin/steam` and `/usr/local/bin/omarchy-launch-steam` route command-line launches, game shortcuts and Omarchy bindings through the same setup; existing local commands are backed up as `*.pre-ultimate`. Inside an existing 4K launch environment the wrapper selects `/usr/bin/steam` directly.
 
 The installer also installs native ARM GameMode and adds the desktop account to
 its standard `gamemode` group. The host launcher holds a GameMode request while
-the Steam VM runs, allowing the CPU's performance governor during gaming. This
-uses more power while Steam is open. The request ends when the VM exits;
+Steam runs, allowing the CPU's performance governor during gaming. This
+uses more power while Steam is open. The request ends when Steam exits;
 GameMode restores the previous governors when its last client exits.
 User GameMode settings remain in effect. A native Python
-client owns the request and waits for muvm; it does not inject `LD_PRELOAD`
-libraries into the VM, FEX or Proton. Unavailable GameMode produces a warning
+client owns the request and waits for Steam or muvm; it does not inject `LD_PRELOAD`
+libraries into FEX or Proton. Unavailable GameMode produces a warning
 and Steam still starts. `--prepare` does not request GameMode.
 
 Valve's FEX compatibility tool (Steam app `3127680`) supplies the Vulkan guest/host bridge. `runtime/prepare.py` runs before Steam and watches for completed tool downloads while Steam runs. It installs the three pinned FEX executables and a server-manager launcher atomically, saving the first originals as `*.valve-original`. It defers changes when the tool is downloading or running. Existing JSON settings are merged and backed up as `*.pre-ultimate`.
@@ -72,12 +96,17 @@ AoE2's native bridge also needs an ARM driver manifest inside pressure-vessel. I
 
 No account credentials or game files are bundled. First use requires Steam sign-in and the normal game/runtime downloads. The installer leaves resolution and game graphics settings to the player.
 
-Recent M3 testing reached the first full-size intro frames in about 79 seconds
-from Steam's launch request, versus 119 seconds before the temporary performance
-governor request. The earlier FEX server lifetime repair had already reduced
-startup from about 193 seconds. These are individual observed launches, not a
-guaranteed startup time; first use also downloads runtimes and runs prerequisites.
-No game integrity checks, resolution or graphics settings were changed.
+The native comparison reached full-resolution intro frames in 26.1–26.2 seconds,
+versus 67–77 seconds through muvm with the same qualified FEX. The installed
+native launcher with the new PR 6081 build reached that marker in 26.5 seconds.
+These are observed launches, not guaranteed startup times or an isolated PR 6081
+speedup. First use also downloads runtimes and runs prerequisites. No game
+integrity checks, resolution or graphics settings were changed.
+
+The comparison used about 12.1 GiB of whole-machine memory in the menu, versus
+14.5 GiB with muvm. This does **not** meet the under-8GB target. The separate
+allocator cleanup, strict-zero-ahead DXVK build and constrained-RAM experiments
+are not installed; their combined candidate crashed and remains unqualified.
 
 ### Clean-install M3 display and CPU setup
 
@@ -88,6 +117,16 @@ embedded display-module checksum, and selects the new Limine entry. Existing
 machine-specific root/encryption arguments are generated by Omarchy's normal
 hooks and preserved. The distribution kernel remains installed as a fallback.
 Reboot once after installing both KDE and Steam.
+
+The installer checks the selected kernel's embedded configuration for mixed-page
+support. On supported Aurora builds it adds `user4k=on` to
+`GRUB_CMDLINE_LINUX` in `/etc/default/grub`, removes conflicting page switches
+from the default arguments, and runs `limine-mkinitcpio`. Omarchy derives Limine's
+arguments from that source during later rebuilds, so the option persists.
+Every generated UKI is checked for the switch. A failed build or stale command
+line restores the previous configuration and boot images from
+`/var/lib/mac-steam-ultimate/boot-backups/`. Unsupported kernels keep the muvm
+path; the installer does not compile a replacement to obtain mixed pages.
 
 The kernel image and other modules are from the tested DSC kernel. The repacked
 package replaces only `appledrm.ko` with the hardware-tested retirement/timestamp
@@ -123,9 +162,15 @@ The preparer installs only the rebuilt `winex11.so` into the qualified Proton Ex
 
 The M3 Pro restoration exercised the 4K VM, private GPU driver, x86 Vulkan placed-mapping guard, and the patched FEX signal/SMC regressions. After sign-in and the normal downloads, the real Valve tool was patched and AoE2 reached gameplay at 3024×1964. The general Wine focus repair also passed an injected stale offer in the real game and F10 after Alt-Tab, with no KDE focus rule. Detailed results and the startup driver-discovery fix are in [VALIDATION.md](VALIDATION.md). No new game FPS measurement is claimed.
 
-The same binary release also passed the 4K VM, FEX signal/SMC regressions, placed-mapping guard and 120-frame native Vulkan rendering check on an M1 MacBook Air. M1 validation is recorded separately from the M3 game result.
+The preceding r1 binary release passed the 4K VM, FEX signal/SMC regressions,
+placed-mapping guard and 120-frame native Vulkan rendering check on an M1
+MacBook Air. The new r2 build and native mode have not been tested on the M1;
+it keeps the muvm default. M1 validation is separate from the M3 game result.
 
-When the KDE installer is present, guest setup also mounts its idle browser-integration helper over the native host inside the Steam VM. This covers Steam's first bootstrap recreating `htmlcache` and discarding the profile-specific override. The host desktop's browser integration is unaffected.
+When the KDE installer is present, both launch paths also mount its idle
+browser-integration helper over the native host inside the Steam namespace.
+This covers Steam's first bootstrap recreating `htmlcache` and discarding the
+profile-specific override. The host desktop's browser integration is unaffected.
 
 Run the preparer regression tests on any Linux development machine:
 
@@ -159,6 +204,24 @@ For FEX on ARM64, install `base-devel clang cmake ninja git python zstd`, then:
 bash mac-steam/build/fex.sh "$HOME/.cache/mac-steam-build"
 ```
 
+The source recipe now also applies [FEX PR 6081](https://github.com/FEX-Emu/FEX/pull/6081)
+as `patches/fex/0006`, imported unchanged from jgoyvaerts's commit
+`61663da5bc8391130e4d3fdf0797f0ff9fe44161`. Original authorship, commit message and
+the upstream regression test are preserved; see [patch provenance](patches/fex/README.md).
+The installer downloads the **r2** binary containing that original patch and
+`0002`–`0004`, with attribution in `SOURCE.txt` and the original patch files in
+the archive. The separate experimental allocator patch is not included.
+
+Build the page-size launcher on ARM64 (or set `CC=aarch64-linux-gnu-gcc` on x86):
+
+```bash
+bash mac-steam/build/userpages.sh /path/to/linux-aurora /path/to/output
+```
+
+It extracts unmodified launcher sources and the matching private prctl header
+from the pinned kernel commit, builds once, and includes the complete launcher
+source and license notices with the binary. End-user installation downloads it.
+
 For ARM Mesa, also install `meson llvm libclc spirv-llvm-translator spirv-tools glslang python-mako python-yaml python-packaging python-ply rust-bindgen libdrm wayland wayland-protocols libx11 libxext libxfixes libxshmfence libxxf86vm libxrandr libxcb expat zstd zlib libglvnd`, with a working stable Rust toolchain:
 
 ```bash
@@ -190,6 +253,11 @@ Steam tool files can be restored from `*.valve-original` and `*.pre-ultimate` af
 
 To undo the render-ahead default, set `dxgi.maxFrameLatency = 0` in
 `steamapps/common/AoE2DE/dxvk.conf`; the preparer respects that explicit choice.
+
+To disable native mode, launch with `--muvm`. To remove the page-size boot option,
+remove `user4k=on` from `/etc/default/grub`, run `sudo limine-mkinitcpio`, and
+reboot. That switch is independent of the private Steam prefix. To revoke the
+native helper authorization, remove `/etc/polkit-1/rules.d/49-mac-steam-native.rules`.
 
 The M3 kernel can be bypassed by selecting the retained `linux-aurora` entry in
 Limine. Installer-modified Limine files have `.pre-mac-steam` backups. To undo the

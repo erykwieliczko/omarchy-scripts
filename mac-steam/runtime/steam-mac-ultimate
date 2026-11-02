@@ -8,6 +8,12 @@ fi
 if [[ ${1:-} == --prepare ]]; then
     exec python3 "$prefix/runtime/prepare.py"
 fi
+backend=${MAC_STEAM_BACKEND:-auto}
+case ${1:-} in
+    --native) backend=native; shift ;;
+    --muvm) backend=muvm; shift ;;
+esac
+case $backend in auto|native|muvm) ;; *) echo 'Backend must be auto, native or muvm.' >&2; exit 2 ;; esac
 root=$(readlink -e "$HOME/.steam/steam" || :)
 root=${root:-${XDG_DATA_HOME:-$HOME/.local/share}/Steam}
 mkdir -p "$HOME/.steam" "${XDG_CACHE_HOME:-$HOME/.cache}/mac-steam-ultimate"
@@ -20,6 +26,25 @@ for link in sdk32:linux32 sdk64:linux64 bin32:ubuntu12_32 bin64:ubuntu12_64; do
     ln -sfn "$root/${link#*:}" "$dest"
 done
 python3 "$prefix/runtime/prepare.py"
+native_supported=0
+if [[ -x $prefix/userpages/bin/userpages ]] &&
+        [[ $("$prefix/userpages/bin/userpages" 4k /usr/bin/getconf PAGESIZE 2>/dev/null) == 4096 ]]; then
+    native_supported=1
+fi
+# Native M3 is hardware-tested. M1 keeps its qualified muvm default until tested.
+if [[ $backend == native ]] || { [[ $backend == auto && $native_supported == 1 ]] &&
+        tr '\0' '\n' < /proc/device-tree/compatible | grep -qx apple,t6030; }; then
+    (( native_supported )) || {
+        echo 'Native 4 KB mode is unavailable. Reboot after installing, or use --muvm.' >&2
+        exit 1
+    }
+    exec /usr/bin/pkexec --disable-internal-agent /usr/local/libexec/mac-steam-native "$@"
+fi
+if pgrep -u "$(id -u)" -x steam >/dev/null; then
+    echo 'Close native Steam and its games before switching to muvm.' >&2
+    exit 1
+fi
+echo 'Steam Ultimate: using muvm (steam-mac-ultimate --native selects native 4 KB mode).'
 export PATH="$prefix/fex/bin:$PATH"
 exec python3 "$prefix/runtime/with-gamemode.py" \
     muvm --emu=fex -e "PATH=$PATH" -x "$prefix/runtime/guest-setup" \

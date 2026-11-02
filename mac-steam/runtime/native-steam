@@ -1,0 +1,210 @@
+#!/usr/bin/python3 -I
+"""Prepare private native-4K mounts, then run Steam as the invoking account."""
+import fcntl
+import json
+import os
+from pathlib import Path
+import pwd
+import resource
+import signal
+import subprocess
+import sys
+import time
+
+PREFIX = Path('/opt/mac-steam-ultimate/current')
+WORK = Path('/run/mac-steam-native')
+STATE = WORK / 'session.json'
+RULES = ('MacSteamNative-x86', 'MacSteamNative-x86_64')
+
+
+def run(command, **kwargs):
+    return subprocess.run(command, check=True, **kwargs)
+
+
+def identity(pid):
+    # The comm field can contain spaces and parentheses.
+    start = Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()[19]
+    return start, os.readlink(f'/proc/{pid}/ns/mnt')
+
+
+def desktop_environment(account, prefix):
+    result = run(['/usr/bin/systemctl', '--user', '-M', account.pw_name + '@.host',
+                  'show-environment'], capture_output=True, text=True)
+    desktop = dict(line.split('=', 1) for line in result.stdout.splitlines() if '=' in line)
+    environment = {
+        'HOME': account.pw_dir, 'USER': account.pw_name, 'LOGNAME': account.pw_name,
+        'SHELL': account.pw_shell, 'XDG_RUNTIME_DIR': f'/run/user/{account.pw_uid}',
+        'PATH': f'{prefix}/fex/bin:/usr/local/bin:/usr/bin',
+        'FEX_ROOTFS': '/run/fex-emu/rootfs',
+        'STEAM_COMPAT_GRAPHICS_PROVIDER': '/run/fex-emu/rootfs/graphics_provider.json',
+        'MAC_STEAM_BACKEND': 'native',
+    }
+    for name, value in desktop.items():
+        if name in ('DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY', 'DBUS_SESSION_BUS_ADDRESS',
+                    'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP', 'KDE_FULL_SESSION',
+                    'LANG', 'LANGUAGE', 'XDG_DATA_HOME', 'XDG_CACHE_HOME', 'XDG_CONFIG_HOME') or name.startswith('LC_'):
+            environment[name] = value
+    if not environment.get('DISPLAY'):
+        raise ValueError('The desktop session has no XWayland display')
+    return environment
+
+
+def user_command(account, prefix, command):
+    environment = desktop_environment(account, prefix)
+    return ['/usr/bin/runuser', '-u', account.pw_name, '--', '/usr/bin/env', '-i',
+            *[name + '=' + value for name, value in environment.items()],
+            str(prefix / 'userpages/bin/userpages'), '4k', *command]
+
+
+def wait_for(command, **kwargs):
+    child = subprocess.Popen(command, start_new_session=True, **kwargs)
+    def forward(signum, frame):
+        try:
+            os.killpg(child.pid, signum)
+        except ProcessLookupError:
+            pass
+    previous = {sig: signal.signal(sig, forward)
+                for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
+    try:
+        result = child.wait()
+        return result if result >= 0 else 128 - result
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+
+
+def send_existing(account, arguments):
+    # Only root writes this file, and the lifetime lock is already held elsewhere.
+    for attempt in range(50):
+        try:
+            state = json.loads(STATE.read_text())
+            if state['uid'] != account.pw_uid:
+                raise ValueError('Another account is running native Steam')
+            if list(identity(state['pid'])) != state['identity']:
+                raise ValueError('The previous native Steam session has exited')
+            prefix = Path(state['prefix'])
+            command = user_command(account, prefix, ['/usr/bin/steam', *arguments])
+            return wait_for(['/usr/bin/nsenter', '--mount', '--target', str(state['pid']),
+                             '--', *command], cwd=account.pw_dir)
+        except FileNotFoundError:
+            if attempt == 49:
+                raise ValueError('Native Steam has not finished starting') from None
+            time.sleep(0.1)
+
+
+def inside(account, arguments):
+    if os.readlink('/proc/self/ns/mnt') == os.readlink('/proc/1/ns/mnt'):
+        raise ValueError('Native Steam requires a private mount namespace')
+    prefix = PREFIX.resolve(strict=True)
+    run(['/usr/bin/mount', '--make-rprivate', '/'])
+    mounted = []
+    registered = []
+    def mount(command, target):
+        run(['/usr/bin/mount', *command, str(target)])
+        mounted.append(target)
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    try:
+        images = [Path('/usr/share/fex-emu/RootFS/default.erofs'),
+                  prefix / 'overlays/mesa-i386.erofs', prefix / 'overlays/mesa-x86_64.erofs']
+        lowers = []
+        for index, image in enumerate(images):
+            target = WORK / f'image-{index}'
+            target.mkdir(exist_ok=True)
+            mount(['-t', 'erofs', '-o', 'loop,ro', str(image)], target)
+            lowers.insert(0, str(target))
+        rootfs = Path('/run/fex-emu/rootfs')
+        rootfs.mkdir(parents=True, exist_ok=True)
+        mount(['-t', 'overlay', '-o', 'ro,lowerdir=' + ':'.join(lowers), 'overlay'], rootfs)
+        for name in ('libvulkan_asahi.so', 'libgallium-26.3.0-devel.so', 'libEGL_mesa.so.0',
+                     'libGLX_mesa.so.0', 'libgbm.so.1', 'dri/libdril_dri.so', 'gbm/dri_gbm.so'):
+            source = (prefix / 'mesa-aarch64/usr/lib' / name).resolve(strict=True)
+            target = (Path('/usr/lib') / name).resolve(strict=True)
+            mount(['--bind', str(source)], target)
+        stub = Path('/usr/local/lib/omarchy-kde/steam-native-messaging-stub')
+        browser = Path('/usr/bin/plasma-browser-integration-host')
+        if stub.is_file() and browser.is_file():
+            mount(['--bind', str(stub)], browser.resolve())
+        for arch, name in zip(('x86', 'x86_64'), RULES):
+            rule = Path(f'/usr/lib/binfmt.d/FEX-{arch}.conf').read_text().strip()
+            if not rule.startswith(f':FEX-{arch}:') or ':/usr/bin/FEX:' not in rule:
+                raise ValueError('The distribution FEX binfmt format has changed')
+            rule = rule.replace(f':FEX-{arch}:', f':{name}:', 1)
+            rule = rule.replace(':/usr/bin/FEX:', f':{prefix}/fex/bin/FEX:', 1)
+            target = Path('/proc/sys/fs/binfmt_misc') / name
+            if target.exists():
+                # These names belong only to this helper. The lifetime lock
+                # prevents removing a registration from another live session.
+                target.write_text('-1')
+            Path('/proc/sys/fs/binfmt_misc/register').write_text(rule + '\n')
+            registered.append(target)
+        command = ['/usr/bin/python3', str(prefix / 'runtime/with-gamemode.py'),
+                   str(prefix / 'runtime/guest-steam'), *arguments]
+        compatible = Path('/proc/device-tree/compatible').read_bytes().split(b'\0')
+        if b'apple,t6030' in compatible:
+            # Preserve the physical CPU affinity used in the native comparison.
+            command = ['/usr/bin/taskset', '-c', '0,7-10', *command]
+        run(user_command(account, prefix, ['/usr/bin/python3', str(prefix / 'runtime/prepare.py')]),
+            cwd=account.pw_dir)
+        temporary = STATE.with_suffix('.new')
+        temporary.write_text(json.dumps({'uid': account.pw_uid, 'pid': os.getpid(),
+                                         'identity': identity(os.getpid()), 'prefix': str(prefix)}))
+        temporary.chmod(0o600)
+        temporary.replace(STATE)
+        print('Steam Ultimate: native FEX, 4 KB processes on the 16 KB host.', flush=True)
+        return wait_for(user_command(account, prefix, command), cwd=account.pw_dir)
+    finally:
+        STATE.unlink(missing_ok=True)
+        for target in reversed(registered):
+            try:
+                if target.exists():
+                    target.write_text('-1')
+            except OSError as error:
+                print(f'Cannot remove temporary binfmt rule {target}: {error}', file=sys.stderr)
+        for target in reversed(mounted):
+            result = subprocess.run(['/usr/bin/umount', str(target)], stderr=subprocess.DEVNULL)
+            if result.returncode:
+                subprocess.run(['/usr/bin/umount', '-l', str(target)], check=False)
+
+
+def main(arguments):
+    if os.geteuid() != 0 or 'PKEXEC_UID' not in os.environ:
+        raise ValueError('Start native Steam through steam-mac-ultimate')
+    account = pwd.getpwuid(int(os.environ['PKEXEC_UID']))
+    if account.pw_uid < 1000:
+        raise ValueError('Steam requires a regular desktop account')
+    if arguments[:1] == ['--inside']:
+        # pkexec removes caller-supplied environment variables. Only the root
+        # supervisor below creates this marker for its namespace worker.
+        if os.environ.get('MAC_STEAM_NATIVE_WORKER') != str(os.getppid()):
+            raise ValueError('The internal mount worker requires its supervisor')
+        return inside(account, arguments[1:])
+    WORK.mkdir(mode=0o700, exist_ok=True)
+    if WORK.stat().st_uid != 0 or WORK.stat().st_mode & 0o077:
+        raise ValueError('The native Steam runtime directory must be private and root-owned')
+    with (WORK / 'session.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return send_existing(account, arguments)
+        if subprocess.run(['/usr/bin/pgrep', '-x', 'libkrun VM'], stdout=subprocess.DEVNULL).returncode == 0:
+            raise ValueError('Close muvm before starting native Steam')
+        if subprocess.run(['/usr/bin/pgrep', '-u', str(account.pw_uid), '-x', 'steam'],
+                          stdout=subprocess.DEVNULL).returncode == 0:
+            raise ValueError('Close the existing Steam client before switching launchers')
+        launcher = PREFIX / 'userpages/bin/userpages'
+        result = run([str(launcher), '4k', '/usr/bin/getconf', 'PAGESIZE'],
+                     capture_output=True, text=True)
+        if result.stdout.strip() != '4096':
+            raise ValueError('Native 4 KB mode is unavailable; reboot or use --muvm')
+        return wait_for(['/usr/bin/unshare', '--mount', '--propagation', 'private', '--',
+                         '/usr/bin/python3', '-I', str(Path(__file__).resolve()),
+                         '--inside', *arguments],
+                        env=dict(os.environ, MAC_STEAM_NATIVE_WORKER=str(os.getpid())))
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+        print(f'Steam Ultimate: {error}', file=sys.stderr, flush=True)
+        sys.exit(1)

@@ -2,8 +2,10 @@
 # Install Mac Steam Ultimate WIP — M1 / M3 Pro, Omarchy Apple Silicon.
 set -euo pipefail
 project=$(cd -- "$(dirname -- "$0")" && pwd)
-release=mac-steam-ultimate-wip-v0.2.0
-base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/$release
+release=mac-steam-ultimate-wip-v0.3.0
+# Existing qualified components retain their immutable v0.2.0 download URLs.
+base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/mac-steam-ultimate-wip-v0.2.0
+native_base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/$release
 target_user=${SUDO_USER:-}
 cache=/var/cache/mac-steam-ultimate
 check_only=0
@@ -53,17 +55,20 @@ if (( check_only )); then
     exit 0
 fi
 (( EUID == 0 )) || die 'Run the bootstrap as your normal user; it invokes sudo for installation.'
-exec 9>/run/lock/mac-steam-ultimate.lock
+install -d -m700 /run/mac-steam-ultimate /run/mac-steam-native
+exec 9>/run/mac-steam-ultimate/installer.lock
 flock -n 9 || die 'Another Steam Ultimate installation is running.'
-if pgrep -u "$uid" -f '^([^ ]*/)?muvm([[:space:]]|$)' >/dev/null; then
-    die 'Close Steam and other muvm applications, then rerun this installer so the VM can use the new drivers.'
+exec 8>/run/mac-steam-native/session.lock
+flock -n 8 || die 'Close native Steam and its games, then rerun this installer.'
+if pgrep -u "$uid" -f '^([^ ]*/)?muvm([[:space:]]|$)' >/dev/null || pgrep -u "$uid" -x steam >/dev/null; then
+    die 'Close Steam and other muvm applications, then rerun this installer so they can use the new drivers.'
 fi
 [[ $(df --output=avail -k /opt | tail -1) -gt 6291456 ]] || die 'At least 6 GiB of free disk space is required.'
 # Use the native ARM Steam package explicitly: asahi-alarm/steam is the older x86 wrapper.
 # Never refresh databases without the corresponding full upgrade.
 pacman -S --needed --noconfirm omarchy/steam muvm FEX-Emu fex-emu-rootfs-arch \
     mesa-fex-emu-overlay-x86_64 mesa-fex-emu-overlay-i386 omarchy-steam-fex \
-    erofs-utils python curl zstd vulkan-tools gamemode
+    erofs-utils python curl zstd vulkan-tools gamemode polkit
 # Use the package's narrowly scoped Polkit rule for temporary CPU governor requests.
 # Polkit sees this membership immediately; no password prompt or new login is needed.
 usermod -aG gamemode "$target_user"
@@ -72,7 +77,9 @@ while read -r hash file; do
     [[ $file && $hash ]] || continue
     [[ $file != linux-aurora-dsc-* || $m3 == 1 ]] || continue
     if ! printf '%s  %s\n' "$hash" "$cache/$file" | sha256sum --check --status 2>/dev/null; then
-        curl --fail --location --retry 3 --proto '=https' --tlsv1.2 "$base/$file" -o "$cache/$file.part"
+        asset_base=$base
+        case $file in fex-aoe2-b608a4767-r2-*|userpages-*) asset_base=$native_base ;; esac
+        curl --fail --location --retry 3 --proto '=https' --tlsv1.2 "$asset_base/$file" -o "$cache/$file.part"
         printf '%s  %s\n' "$hash" "$cache/$file.part" | sha256sum --check --status || die "Checksum mismatch: $file"
         mv "$cache/$file.part" "$cache/$file"
     fi
@@ -96,8 +103,9 @@ cleanup() {
 }
 trap cleanup EXIT
 chmod 755 "$stage"
-mkdir -p "$stage/fex" "$stage/mesa-aarch64" "$stage/runtime" "$stage/wine-focus"
-tar --zstd -xf "$cache/fex-aoe2-b608a4767-r1-aarch64.tar.zst" -C "$stage/fex"
+mkdir -p "$stage/fex" "$stage/mesa-aarch64" "$stage/runtime" "$stage/wine-focus" "$stage/userpages"
+tar --zstd -xf "$cache/fex-aoe2-b608a4767-r2-aarch64.tar.zst" -C "$stage/fex"
+tar --zstd -xf "$cache/userpages-3bdf11d3-r1-aarch64.tar.zst" -C "$stage/userpages"
 tar --zstd -xf "$cache/mesa-672657e-r1-aarch64.tar.zst" -C "$stage/mesa-aarch64"
 mkdir -p "$stage/sources/mesa"
 tar --zstd -xf "$cache/mesa-672657e-r1-source.tar.zst" -C "$stage/sources/mesa"
@@ -133,9 +141,14 @@ if (( m3 )); then
             ! printf '%s  %s\n' "$module_sha" "$module" | sha256sum --check --status 2>/dev/null; then
         pacman -U --noconfirm "$package"
     fi
-    python3 "$stage/runtime/host-setup.py" select-kernel
     systemctl daemon-reload
     systemctl enable mac-steam-m3-panel.service
+fi
+boot_kernel=$(uname -r)
+if (( m3 )); then boot_kernel=7.2.11-11-dsc3-ARCH; fi
+python3 "$stage/runtime/boot-pages.py" --kernel "$boot_kernel"
+if (( m3 )); then
+    python3 "$stage/runtime/host-setup.py" select-kernel
 fi
 
 # Expose muvm's merged rootfs at Valve's graphics-provider discovery path.
@@ -153,6 +166,30 @@ ln -sfn "$installed" /opt/mac-steam-ultimate/current.new
 mv -Tf /opt/mac-steam-ultimate/current.new /opt/mac-steam-ultimate/current
 activated=1
 install -d /usr/local/bin
+install -d /usr/local/libexec /etc/polkit-1/rules.d
+# pkexec canonicalizes executable symlinks before consulting its policy. Keep
+# this entry point a regular file so its narrowly scoped rule has a stable path.
+rm -f /usr/local/libexec/mac-steam-native
+install -m755 "$installed/runtime/native-steam" /usr/local/libexec/mac-steam-native
+# Authorize only this root-owned mount helper for the installed desktop account.
+# It prepares fixed mounts and drops privileges before running any user code.
+python3 - "$target_user" <<'PY'
+import json
+from pathlib import Path
+import sys
+account = json.dumps(sys.argv[1])
+rule = '''polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        action.lookup("program") == "/usr/local/libexec/mac-steam-native" &&
+        subject.user == ACCOUNT && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
+'''.replace('ACCOUNT', account)
+path = Path('/etc/polkit-1/rules.d/49-mac-steam-native.rules')
+path.write_text(rule)
+path.chmod(0o644)
+PY
 ln -sfn /opt/mac-steam-ultimate/current/runtime/steam-mac-ultimate /usr/local/bin/steam-mac-ultimate
 for name in steam omarchy-launch-steam; do
     destination=/usr/local/bin/$name
@@ -191,8 +228,10 @@ echo 'Installed! Open Steam (Mac Ultimate WIP) from your app launcher, or run st
 echo 'Sign in normally, install AoE2 DE, and use Proton Experimental. Steam supplies its own FEX tool and Vulkan bridge.'
 echo 'The launcher applies the pinned AoE2 fixes when that tool finishes downloading.'
 echo "Enable V-Sync in AoE2's advanced Graphics options for the tested responsive-cursor setup."
-echo 'Recent M3 testing reached the intro in about 80 seconds; first use also runs Steam prerequisite installers and can take longer.'
-echo 'GameMode requests the performance CPU governor while Steam runs and restores the previous setting when the VM closes.'
+echo 'The native M3 comparison reached the intro in about 26 seconds; first use still downloads runtimes and installs prerequisites.'
+echo 'GameMode requests the performance CPU governor while Steam runs and restores the previous setting when Steam closes.'
+echo 'Mixed-page kernels get user4k=on and rebuilt, verified boot images. Reboot once to activate it.'
+echo 'The tested M3 uses native FEX when 4 KB process support is active; --muvm keeps the VM path available.'
 if (( m3 )); then
     echo 'Reboot once before playing: the qualified M3 display kernel is selected automatically.'
 fi

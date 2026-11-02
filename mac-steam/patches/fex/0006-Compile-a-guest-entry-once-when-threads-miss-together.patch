@@ -1,0 +1,248 @@
+From 61663da5bc8391130e4d3fdf0797f0ff9fe44161 Mon Sep 17 00:00:00 2001
+From: jgoyvaerts <1125884+jgoyvaerts@users.noreply.github.com>
+Date: Sun, 1 Nov 2026 19:58:02 -0300
+Subject: [PATCH] FEXCore: compile a guest entry once when threads miss on it
+ together
+
+Threads running the same code miss on the same entry at the same time.
+Nothing stopped each of them compiling it, so every thread emitted its
+own copy. The copies fill the code buffer, the clear that follows makes
+all of them miss together again, and each finished compile queues on
+the lookup cache write lock once per entry point.
+
+Take a per-entry lock around the compile and look the entry up again
+when it is this thread's turn. The locks are striped by a hash of the
+RIP, so two entries only wait on each other if they collide. Generated
+code doesn't change.
+
+Forking takes CodeInvalidationMutex exclusively and the compile holds it
+shared, so no compile lock can be held across a fork.
+
+concurrent_compile counts compiles through FEX's own stats, so it doesn't
+depend on timing.
+---
+ FEXCore/Source/Interface/Context/Context.h    |   3 +
+ FEXCore/Source/Interface/Core/Core.cpp        |   8 +
+ unittests/FEXLinuxTests/CMakeLists.txt        |   3 +
+ unittests/FEXLinuxTests/tests/CMakeLists.txt  |   4 +
+ .../tests/cpu/concurrent_compile.64.cpp       | 142 ++++++++++++++++++
+ 5 files changed, 160 insertions(+)
+ create mode 100644 unittests/FEXLinuxTests/tests/cpu/concurrent_compile.64.cpp
+
+diff --git a/FEXCore/Source/Interface/Context/Context.h b/FEXCore/Source/Interface/Context/Context.h
+index 9b91055bd0..21655dc15e 100644
+--- a/FEXCore/Source/Interface/Context/Context.h
++++ b/FEXCore/Source/Interface/Context/Context.h
+@@ -20,6 +20,7 @@
+ #include <FEXCore/fextl/unordered_map.h>
+ #include <FEXCore/fextl/vector.h>
+ 
++#include <array>
+ #include <atomic>
+ #include <cstddef>
+ #include <cstdint>
+@@ -380,6 +381,8 @@ class ContextImpl final : public FEXCore::Context::Context, public CPU::SharedCo
+   bool HostRNGAvailable {};
+ 
+   FEXCore::Utils::WritePriorityMutex::Mutex CodeInvalidationMutex {};
++  // Taken while compiling a guest entry, by hash of its RIP. See CompileBlock.
++  std::array<FEXCore::Utils::WritePriorityMutex::Mutex, 1024> EntryCompileLocks {};
+ 
+   uint32_t StrictSplitLockMutex {};
+ 
+diff --git a/FEXCore/Source/Interface/Core/Core.cpp b/FEXCore/Source/Interface/Core/Core.cpp
+index 63280a42a3..2bf2e7568c 100644
+--- a/FEXCore/Source/Interface/Core/Core.cpp
++++ b/FEXCore/Source/Interface/Core/Core.cpp
+@@ -875,6 +875,14 @@ uintptr_t ContextImpl::CompileBlock(FEXCore::Core::CpuStateFrame* Frame, uint64_
+     return HostCode;
+   }
+ 
++  // Threads running the same code miss on the same entry at the same time. If they each compile it, the copies fill the code
++  // buffer and the clear that follows makes all of them miss together again. So take turns, and look again when it's our turn.
++  // No fork can see this held: forking takes CodeInvalidationMutex exclusively.
++  std::lock_guard EntryCompileLock(EntryCompileLocks[(GuestRIP ^ (GuestRIP >> 10) ^ (GuestRIP >> 20)) % EntryCompileLocks.size()]);
++  if (auto HostCode = Thread->LookupCache->FindBlock(Thread, GuestRIP)) {
++    return HostCode;
++  }
++
+   Thread->FrontendDecoder->SetupDecodeInstructionsAtEntry(Thread, GuestRIP, MaxInst);
+ 
+   std::optional<ExecutableFileSectionInfo> Region = SyscallHandler->LookupExecutableFileSection(Thread, GuestRIP);
+diff --git a/unittests/FEXLinuxTests/CMakeLists.txt b/unittests/FEXLinuxTests/CMakeLists.txt
+index 15d03e2f9d..0a7d0b0b62 100644
+--- a/unittests/FEXLinuxTests/CMakeLists.txt
++++ b/unittests/FEXLinuxTests/CMakeLists.txt
+@@ -58,6 +58,9 @@ function(AddTests Tests BinDirectory Bitness)
+       "${BIN_PATH}")
+ 
+     set_property(TEST "${TEST_CASE}.jit.flt" APPEND PROPERTY ENVIRONMENT "FEX_OUTPUTLOG=stderr;FEX_SILENTLOG=0;FEX_MAXINST=500")
++    if(TEST_NAME STREQUAL "concurrent_compile")
++      set_property(TEST "${TEST_CASE}.jit.flt" APPEND PROPERTY ENVIRONMENT "FEX_PROFILESTATS=1")
++    endif()
+ 
+     if(TEST_NAME STREQUAL "thunk_testlib")
+       set_property(TEST "${TEST_CASE}.jit.flt" APPEND PROPERTY ENVIRONMENT "FEX_THUNKCONFIG=${CMAKE_SOURCE_DIR}/Data/CI/FEXLinuxTestsThunks.json")
+diff --git a/unittests/FEXLinuxTests/tests/CMakeLists.txt b/unittests/FEXLinuxTests/tests/CMakeLists.txt
+index 81bcf72945..60bdec3ef3 100644
+--- a/unittests/FEXLinuxTests/tests/CMakeLists.txt
++++ b/unittests/FEXLinuxTests/tests/CMakeLists.txt
+@@ -37,6 +37,10 @@ target_link_libraries(rlimit_data_pthread.${BITNESS} PRIVATE pthread)
+ 
+ target_link_options(smc-1-dynamic.${BITNESS} PRIVATE -z execstack)
+ 
++if(BITNESS EQUAL 64)
++  target_link_libraries(concurrent_compile.${BITNESS} PRIVATE pthread)
++endif()
++
+ target_link_libraries(smc-mt-1.${BITNESS} PRIVATE pthread)
+ 
+ target_link_libraries(smc-mt-2.${BITNESS} PRIVATE pthread)
+diff --git a/unittests/FEXLinuxTests/tests/cpu/concurrent_compile.64.cpp b/unittests/FEXLinuxTests/tests/cpu/concurrent_compile.64.cpp
+new file mode 100644
+index 0000000000..c19eb575e8
+--- /dev/null
++++ b/unittests/FEXLinuxTests/tests/cpu/concurrent_compile.64.cpp
+@@ -0,0 +1,142 @@
++// Threads that reach the same untranslated code together must share one translation.
++//
++// Worker pools run the same code at the same time, so they miss on the same entry at the same time. When each of them translated it,
++// the copies filled the code buffer, and the clear that followed made them all miss together again. This is invisible to the guest
++// other than in speed, so the test reads FEX's own compile count instead of timing anything.
++
++#include <catch2/catch_test_macros.hpp>
++
++#include <algorithm>
++#include <atomic>
++#include <cstdint>
++#include <cstdio>
++#include <cstdlib>
++#include <thread>
++#include <vector>
++
++#include <fcntl.h>
++#include <sys/mman.h>
++#include <sys/stat.h>
++#include <unistd.h>
++
++// Many translations of the same size, each long enough that the other threads arrive while the first one compiles.
++// Each stays under the FEX_MAXINST=500 that CMake sets for these tests, so it is one translation.
++#define FUNCTIONS 64
++extern "C" {
++extern const uint8_t concurrent_compile_functions[];
++extern const uint8_t concurrent_compile_functions_end[];
++}
++__asm__(R"(
++.text
++.balign 4096
++concurrent_compile_functions:
++.rept 64
++  .rept 130
++  add rax, rbx
++  xor rcx, rax
++  imul rdx, rcx
++  .endr
++  ret
++.endr
++concurrent_compile_functions_end:
++)");
++
++// From FEXCore/Utils/SHMStats.h, which only ever appends to these. A guest can't include it, it would need FEX's arch defines.
++struct StatsHeader {
++  uint8_t Version;
++  uint8_t AppType;
++  uint16_t ThreadStatsSize;
++  char FEXVersion[48];
++  uint32_t Head;
++};
++
++constexpr size_t JITCountOffset = 8 + 8 * 8;
++
++static uint64_t CompileCount(const uint8_t* Stats) {
++  auto Header = reinterpret_cast<const StatsHeader*>(Stats);
++  uint64_t Count {};
++  for (uint32_t Offset = std::atomic_ref(const_cast<uint32_t&>(Header->Head)).load(); Offset;) {
++    auto Thread = Stats + Offset;
++    Count += std::atomic_ref(*const_cast<uint64_t*>(reinterpret_cast<const uint64_t*>(Thread + JITCountOffset))).load();
++    Offset = std::atomic_ref(*const_cast<uint32_t*>(reinterpret_cast<const uint32_t*>(Thread))).load();
++  }
++  return Count;
++}
++
++TEST_CASE("Threads share one translation") {
++  // CMake sets this for this test. Without it this isn't running under FEX's test harness.
++  if (!getenv("FEX_PROFILESTATS")) {
++    SUCCEED("Needs FEX's compile counts");
++    return;
++  }
++
++  char Path[64];
++  snprintf(Path, sizeof(Path), "/dev/shm/fex-%d-stats", getpid());
++  int FD = open(Path, O_RDONLY);
++  REQUIRE(FD != -1);
++
++  const int Threads = std::min(8U, std::thread::hardware_concurrency());
++  if (Threads < 2) {
++    SUCCEED("Needs two threads running at once");
++    return;
++  }
++
++  std::atomic<int> Next {-1};
++  std::atomic<int> Arrived {0};
++  std::atomic<bool> Counted {false};
++  const size_t Size = (concurrent_compile_functions_end - concurrent_compile_functions) / FUNCTIONS;
++
++  auto Worker = [&]() {
++    for (int Function = 0; Function < FUNCTIONS; ++Function) {
++      Arrived.fetch_add(1);
++      while (Next.load() < Function) {
++        __builtin_ia32_pause();
++      }
++      // Only touches caller saved registers.
++      reinterpret_cast<void (*)()>(reinterpret_cast<uintptr_t>(concurrent_compile_functions) + Function * Size)();
++    }
++    Arrived.fetch_add(1);
++    // FEX drops a thread's stats when it exits.
++    while (!Counted.load()) {
++      __builtin_ia32_pause();
++    }
++  };
++
++  std::vector<std::thread> Pool;
++  for (int i = 0; i < Threads; ++i) {
++    Pool.emplace_back(Worker);
++  }
++
++  auto AllArrived = [&](int Function) {
++    while (Arrived.load() < Threads * (Function + 1)) {
++      __builtin_ia32_pause();
++    }
++  };
++  AllArrived(0);
++
++  // Stats grow as threads start, so map them once every worker exists.
++  struct stat Info {};
++  REQUIRE(fstat(FD, &Info) == 0);
++  auto Stats = static_cast<const uint8_t*>(mmap(nullptr, Info.st_size, PROT_READ, MAP_SHARED, FD, 0));
++  REQUIRE(Stats != MAP_FAILED);
++
++  // The first function translates the worker loop itself, so it doesn't count.
++  Next.store(0);
++  AllArrived(1);
++  const uint64_t Before = CompileCount(Stats);
++
++  for (int Function = 1; Function < FUNCTIONS; ++Function) {
++    Next.store(Function);
++    AllArrived(Function + 1);
++  }
++  const uint64_t Compiles = CompileCount(Stats) - Before;
++
++  Counted.store(true);
++  for (auto& Thread : Pool) {
++    Thread.join();
++  }
++
++  // One translation each, plus a little for the return paths.
++  INFO("Compiles for " << FUNCTIONS - 1 << " functions in " << Threads << " threads");
++  CHECK(Compiles < (FUNCTIONS - 1) * 3 / 2);
++}

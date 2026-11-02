@@ -15,15 +15,17 @@ Reboot once, log into **Omarchy (KDE Plasma)** with your normal password, and op
 Definitive Edition**, and play. Steam downloads its compatibility tools normally;
 the launcher applies the tested Vulkan and keyboard repairs automatically.
 
-Allow around two minutes for AoE2 startup on the tested M3, including time before
-its window appears. The installer repairs a repeated launcher wait that previously
-made startup take over three minutes. First use also runs Steam's prerequisite
-installers and can take longer; watch Steam's setup progress before retrying.
+After runtime setup, the native M3 test reached AoE2's intro in about 26.5 seconds.
+First use also downloads Steam's compatibility tools and runs prerequisite
+installers; watch Steam's setup progress before retrying.
 
 The keyboard script applies the PC modifier/F-key layout described below.
 
 The Steam script installs the qualified M3 display kernel, selects it for the next
 boot, enables the panel timestamp fix, and disables costly KVM idle polling.
+It also enables `user4k=on` in the persistent boot configuration and verifies the
+rebuilt boot images. After reboot, the M3 uses **native FEX with 4KB process pages**
+on the 16KB host; `steam-mac-ultimate --muvm` keeps the VM fallback available.
 Everything is downloaded as checksum-verified binaries; installation does not
 compile FEX, Mesa, Wine or the kernel. Your resolution and graphics quality remain
 your choice. The experimental lossless compression and FEX short-validation
@@ -45,10 +47,10 @@ Sign in to Steam normally and install AoE2 DE. The tested native ARM Steam clien
 
 The installer is repeatable, keeps backups of replaced Steam files, and supports a root invocation with `--user YOUR_ACCOUNT`. Close existing Steam/muvm applications before installing. A first installation downloads roughly 1 GB before Steam's own client/runtime downloads. Keep at least 6 GiB free, plus space for games.
 
-Native GameMode requests the performance CPU governor while the Steam VM runs,
-then restores the previous governors on exit. This uses more power while Steam
-is open. On the M3, a fresh-VM launch reached AoE2's intro in about 79 seconds,
-versus 119 seconds before this change; first-use setup can take longer.
+GameMode requests the performance CPU governor while Steam runs in either mode,
+then restores the previous governors on exit.
+This uses more power while Steam is open. The native M3 installer test reached
+AoE2's full-resolution intro in about 26.5 seconds; first-use setup can take longer.
 
 AoE2 also gets a one-frame render-ahead limit after its download completes,
 while existing explicit settings are respected. Enable **V-Sync** in the game's

@@ -1,4 +1,68 @@
-# Validation — 2026-11-01
+# Validation
+
+## Native mixed-page installer — 2026-11-02
+
+The owner requested that the working improvements be included for an upcoming
+fresh Omarchy installation, with native FEX selected automatically on the M3
+and muvm retained as fallback. This is an upgrade test of the complete installer;
+the subsequent OS reinstall remains a separate test.
+
+The candidate installed on the M3 and rebuilt both Aurora UKIs through Omarchy's
+normal `limine-mkinitcpio` frontend. The selected kernel's embedded configuration
+contains `ARM64_USER4K_EXPERIMENTAL=y`, `MM_SUBPAGE=y` and native 16K pages.
+`user4k=on` is written to `/etc/default/grub`, the source used by Omarchy's boot
+hooks, and appears exactly once in each rebuilt image's embedded command line.
+Machine-specific root and encryption arguments were preserved. A second
+installation recognized the valid images and skipped rebuilding them.
+
+The page launcher is built unmodified from pinned kernel commit
+`3bdf11d3acb6ea1511b0611ddd40ac5336b7b215`. Its archive contains the launcher,
+matching prctl header, Makefile, README and license texts. The initial packaging
+test found that an archived mode-700 staging root prevented normal users from
+executing it; the builder now archives a mode-755 root. A second integration
+test found that pkexec canonicalizes executable symlinks before policy lookup;
+the installed privileged helper is now a regular root-owned file at a stable
+path. The active local desktop account starts it without a password prompt.
+
+The new r2 FEX binary includes only `0002`, `0003`, `0004` and the unmodified
+jgoyvaerts PR 6081 patch. Its SHA-256 is
+`b6b2a60ec1b905f5f49b7c9f324756e783c75e9ef53fb33a3f53fcbe93636f1e`.
+No allocator cleanup, constrained guest-memory settings or custom zero-ahead
+DXVK DLLs are installed. The original author/date/message/test are retained in
+`0006`, whose SHA-256 remains
+`6f0ad5e0408e0a193d676d4d102214403c3e72411245b870cba4e0732b17a0d5`.
+
+Normal-user launch and existing-session `-applaunch 813780` forwarding passed.
+The installed launcher reached focused 3024×1964 intro presentations in
+**26.506 seconds**. Space was sent once after that marker. The game loaded
+`DXVK-QUEUE-TEST-20261101`, and F10 opened its menu both directly and after
+Alt-Tab. The actual game executable matches the new FEX hash; its native ARM
+Vulkan driver matches the previous private driver hash
+`189be05dd432ec88a64c8ff676d0d131929d282ff0e5fadb1e87dc186c14b00b`.
+AoE2's real process auxv reports **4096-byte pages**, while KWin reports **16384**.
+Their mount namespaces differ and no libkrun VM was running.
+
+Twenty-second passive samples observed 79.22 distinct presentation-feedback
+timestamps/s in the menu and 113.13/s in that tiny skirmish. The game used about
+72% and 74% of one CPU core respectively. These are presentation observations,
+not physical scanout or input-to-photon measurements, and are not evidence of
+an isolated PR 6081 speedup. The prior native-versus-muvm comparison used the
+older r1 FEX in both paths and remains documented separately.
+
+Normal Steam shutdown removed both temporary binfmt registrations and the
+session state; no Steam, game or VM remained, and both CPU clusters returned to
+`schedutil`. Desktop Mesa mounts were kept outside the private namespace.
+Forty Python regressions pass, including failed/stale UKI rollback,
+machine-argument preservation, existing-session identity, privilege separation,
+Wine/tool-update handling and GameMode/server lifetime. ShellCheck and Python
+syntax checks pass. The new native path and r2 binary are not yet qualified on
+the currently unreachable M1; its default stays muvm. Extended game stability
+and the under-8GB whole-machine memory target remain open.
+
+The explicit `--muvm` fallback also started Steam and reached focused full-size
+AoE2 intro presentations in **77.553 seconds** with r2. The startup script sent
+Space once after that marker. Both this fallback and the native path retain the
+same private FEX/Mesa, Wine focus repair and one-frame DXVK default.
 
 ## Gameplay cursor and render-ahead — 2026-11-01 afternoon
 
