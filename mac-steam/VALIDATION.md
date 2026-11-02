@@ -64,6 +64,18 @@ AoE2 intro presentations in **77.553 seconds** with r2. The startup script sent
 Space once after that marker. Both this fallback and the native path retain the
 same private FEX/Mesa, Wine focus repair and one-frame DXVK default.
 
+Published payload: `2bce2b696f2f1507c5f7c64907c2af03187b7729`. Bootstrap commit
+`0cacf54` pins its archive SHA-256
+`dd6ccb027b7e6951fce81e8cd22eef217ab13f9a6ad9d6a539c593d29069f5b4`.
+Release `mac-steam-ultimate-wip-v0.3.0` contains the new FEX and userpages archives;
+GitHub's asset digests match the installer manifest. The public anonymous curl
+installer completed on the M3 after moving those two cache files aside, proving
+their actual downloads and checksum verification. All ten installed runtime
+files match the published payload, as does the regular privileged helper.
+The installed launcher then started native Steam successfully. Normal-user curl
+`--check` also passed. The live-install lock and refusal to start muvm while
+native Steam is running were checked without altering the active prefix.
+
 ## Gameplay cursor and render-ahead — 2026-11-01 afternoon
 
 The owner reported a small gameplay cursor delay, while KDE and the skirmish
