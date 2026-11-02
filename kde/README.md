@@ -4,6 +4,14 @@ Installs KDE Plasma on an existing Omarchy / Arch Linux ARM installation on Appl
 
 The installer uses the distribution's `plasma-meta` package and KDE desktop applications. The [upstream Plasma Login Manager](https://github.com/KDE/plasma-login-manager) provides the password login screen. Automatic login is disabled, including in the old SDDM fallback configuration.
 
+Package installation uses a temporary official Arch Linux ARM `CacheServer` for
+base ARM repositories mirrored by Omarchy. Pacman checks those package copies
+against the existing repository hashes and signatures; databases and repository
+priority remain unchanged. Full system upgrades stay in Omarchy's updater.
+This fixed a fresh M1/M3 installation where Omarchy's live `extra` database
+advertised `onetbb-2023.2.0-1` but its mirror returned 404. The official cache
+served the matching package and both KDE installations completed.
+
 ## Usage
 
 ```bash

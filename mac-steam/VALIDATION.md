@@ -1,5 +1,24 @@
 # Validation
 
+## Fresh-image mirror recovery — 2026-11-02
+
+Fresh M1 and M3 installations on `7.2.11-14-1-ARCH` exposed an Omarchy ARM mirror
+gap: even its refreshed database advertised `onetbb-2023.2.0-1-aarch64.pkg.tar.xz`
+while the corresponding package URL returned 404. The official de3 Arch Linux
+ARM mirror served the same 403,280-byte file with the database's expected SHA-256,
+`54cd693870bfa5acc43dd4f88f52fbae4fb8dd7130af2fcd5cc822d2031fb79e`.
+
+KDE and Steam now share a package-install helper that expands the current
+pacman configuration into a temporary file and adds a package-only `CacheServer`
+for Omarchy-mirrored ARM base repositories. It preserves database sources,
+repository order, signature policy and custom repositories. It installs with
+`-S`, leaving refreshes and full upgrades to Omarchy's updater. A direct-upgrade
+experiment was refused by Omarchy's transaction hook; no bypass flag was used.
+Both fresh KDE installations completed through the helper, including package
+signature validation. Three fixture tests cover policy preservation, failure
+status/temporary cleanup and non-Omarchy mirrors. Existing KDE and Steam tests
+and ShellCheck pass.
+
 ## Native mixed-page installer — 2026-11-02
 
 The owner requested that the working improvements be included for an upcoming

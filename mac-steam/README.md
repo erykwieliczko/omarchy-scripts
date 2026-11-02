@@ -37,6 +37,11 @@ they are removed when Steam exits. Existing distribution registrations remain.
 
 Steam, Proton, muvm, libkrun, virglrenderer and base rootfs/overlay packages come from configured Omarchy/Asahi repositories or Valve. They continue receiving their normal updates. This release pins our FEX/Mesa sources and binaries, not the entire operating system or proprietary Steam client.
 
+System dependencies use a temporary official Arch Linux ARM `CacheServer` for
+base ARM repositories mirrored by Omarchy, covering missing mirror files.
+Pacman retains the existing database sources, repository priority and signature
+policy. Full system upgrades stay in Omarchy's updater.
+
 Baseline used on 2026-10-31: native `omarchy/steam 1.0.0.87-1`, client build `1792618285`, `muvm 0.7.0-1`, `libkrun 1.19.7-1`, `virglrenderer 1.3.0-2`, `fex-emu-rootfs-arch 20260318-1`, base Mesa overlays `26.2.3-1`, host `mesa-aurora/vulkan-aurora 26.3.0-devel` at the same Mesa base commit, kernel `7.2.11-11-dsc3-ARCH`.
 
 ## Integration

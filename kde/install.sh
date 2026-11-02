@@ -48,8 +48,10 @@ for path in /etc/plasmalogin.conf /etc/plasmalogin.conf.d /etc/sddm.conf /etc/sd
         cp -a --parents "$path" "$backup/"
     fi
 done
-# Repository metadata belongs to Omarchy's normal update flow. Do not run pacman -Sy here.
-pacman -S --needed --noconfirm plasma-meta plasma-login-manager dolphin konsole kate ark \
+# Keep Omarchy's update policy and use a package cache for missing ARM mirror files.
+# shellcheck source=../common/pacman-install.sh
+source "$project/../common/pacman-install.sh"
+mac_install_packages plasma-meta plasma-login-manager dolphin konsole kate ark \
     spectacle kwallet-pam python
 install -d -m755 /usr/local/lib/omarchy-kde/bin /usr/local/bin /usr/local/share/wayland-sessions
 for file in start-plasma session-env.sh theme.py setup-user.py switch-desktop steam-native-messaging-stub; do

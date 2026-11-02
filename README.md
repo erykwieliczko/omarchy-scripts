@@ -20,6 +20,9 @@ First use also downloads Steam's compatibility tools and runs prerequisite
 installers; watch Steam's setup progress before retrying.
 
 The keyboard script applies the PC modifier/F-key layout described below.
+The KDE and Steam installers use an official Arch Linux ARM package cache to
+cover missing files in Omarchy's ARM mirror. Repository metadata, package order
+and signature checks stay under Omarchy's configuration.
 
 The Steam script installs the qualified M3 display kernel, selects it for the next
 boot, enables the panel timestamp fix, and disables costly KVM idle polling.

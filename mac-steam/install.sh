@@ -65,8 +65,10 @@ if pgrep -u "$uid" -f '^([^ ]*/)?muvm([[:space:]]|$)' >/dev/null || pgrep -u "$u
 fi
 [[ $(df --output=avail -k /opt | tail -1) -gt 6291456 ]] || die 'At least 6 GiB of free disk space is required.'
 # Use the native ARM Steam package explicitly: asahi-alarm/steam is the older x86 wrapper.
-# Never refresh databases without the corresponding full upgrade.
-pacman -S --needed --noconfirm omarchy/steam muvm FEX-Emu fex-emu-rootfs-arch \
+# Keep Omarchy's update policy and use a package cache for missing ARM mirror files.
+# shellcheck source=../common/pacman-install.sh
+source "$project/../common/pacman-install.sh"
+mac_install_packages omarchy/steam muvm FEX-Emu fex-emu-rootfs-arch \
     mesa-fex-emu-overlay-x86_64 mesa-fex-emu-overlay-i386 omarchy-steam-fex \
     erofs-utils python curl zstd vulkan-tools gamemode polkit
 # Use the package's narrowly scoped Polkit rule for temporary CPU governor requests.
