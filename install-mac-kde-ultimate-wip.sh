@@ -16,8 +16,8 @@ main() {
         echo 'Install Mac KDE Ultimate WIP requires Omarchy/Arch Linux.' >&2
         return 1
     fi
-    revision=ed3f771f7ea79edf8b7de82d1445e7e0de0a881b
-    archive_sha256=8af8c82e6b5edaf6a295e7b9c3a0601047079b1f2393a95c6ca95fa499d2c90b
+    revision=7c4a2d46e9bc4db7ffe3dd96eb01487fc4d8ce4f
+    archive_sha256=43525fc72925998436c0e303d5c4e1de5b5037d5362aecf745237a8a01713976
     bootstrap_dir=$(mktemp -d)
     trap 'rm -rf -- "$bootstrap_dir"' EXIT
     echo 'Downloading Install Mac KDE Ultimate WIP (pinned installer)...'
