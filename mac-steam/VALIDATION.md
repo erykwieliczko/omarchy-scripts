@@ -1,5 +1,51 @@
 # Validation
 
+## Satisfactory Vulkan menu lighting — 2026-11-03
+
+Release v0.5.1 adds patch 0008 to the same Aurora base
+`a19691114759e2c0507f3502cf6166ef2c6e2e33`. Satisfactory's local-fog pass
+blends into the HDR scene while specifying `LOAD_OP_DONT_CARE` for color and
+`LOAD` for depth. Discarding color is legal Vulkan behavior, and the M3 tile
+renderer loses the preceding lighting. A scoped drirc option,
+`hk_preserve_discarded_hdr_color`, preserves color for this game's observed
+single-target RGBA16F / loaded-depth passes. Other applications and GPU
+identity, firmware, kernel-ABI and unsupported-feature admission stay unchanged.
+
+The patch restores neon lighting, surfaces and reflections both in a captured
+frame and in the live Vulkan menu. No world or save was opened. Validation used
+Satisfactory 1.2.4.1 (513885), M3 Pro / G15S B1 and kernel
+`7.2.11-11-dsc3-ARCH`, with a 1280×720 menu window. All ARM64, x86-64 and i386
+drivers were rebuilt from the eight-patch source; their provenance records
+match the corresponding source archive. This is menu lighting validation,
+not gameplay, another-Mac qualification or a new performance measurement.
+
+RenderDoc 1.46 captured one menu frame. The same replay file was rendered on
+native ARM64 Honeykrisp and x86-64 lavapipe/llvmpipe, both built from the exact
+Aurora base. Cross-driver replay required explicit, audited adaptations:
+
+- Remove unused enabled features/extensions rejected by lavapipe. Captured
+  shader capabilities and query inheritance were checked; no shader is changed.
+- Encode the effective disabled-depth-bounds and HDR-preservation workaround
+  state in the replay, so both drivers receive the same state.
+- Expand the unsupported RGB8 target to equivalent RGBA8 storage, including
+  initial pixels. The extra alpha channel is unused by the game pass.
+- Give the D32S8 scene depth image separate backing memory: it needs 2,867,200
+  bytes on the M3 and 4,147,200 bytes on lavapipe. The captured suballocation
+  offsets otherwise overlap on lavapipe and produce invalid depth and false fog.
+
+Replay SHA-256:
+`a5281ab950aa4bfd0ce15fe04faa786248b4d28b56c37e4220cce4801e44ff8d`.
+The adapted GPU output differs from the original capture by less than 0.0002
+RGB intensity levels on average. RenderDoc's conservative replay, including
+fills of discarded data, reproduces the lit scene. GPU versus software gives
+**34.1 dB PSNR**, **1.59/255 mean RGB error** and **median channel error 1/255**.
+The images closely match, with residual differences around bright edges and
+reflections; they are not pixel-identical. Captures and game shader data remain
+private and are excluded from the installer and source patchset.
+
+The separate precompiled `Int64ImageEXT` pipeline failures are not the cause of
+the erased scene. The workaround adds no 64-bit image-atomic feature claims.
+
 ## Current Aurora Mesa and Satisfactory Vulkan startup — 2026-11-03
 
 Release v0.5.0 rebases the private ARM64, x86-64 and i386 Mesa builds onto
@@ -18,7 +64,8 @@ in the menu, an eight-second XPresent capture recorded 50 presentations,
 not a physical-panel FPS measurement. The preceding DX11 baseline is about 9 FPS.
 No save or playable world was loaded.
 
-Vulkan remains experimental: the menu has incorrect dark lighting. Separate
+At v0.5.0 the Vulkan menu still had incorrect dark lighting (fixed above in
+v0.5.1). Separate
 compute-pipeline failures request unsupported SPIR-V `Int64ImageEXT` image types;
 we have not established that they cause the lighting defect. Neither 64-bit
 image atomics nor another unimplemented feature is advertised as supported.

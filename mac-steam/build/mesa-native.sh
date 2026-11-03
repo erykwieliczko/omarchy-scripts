@@ -39,9 +39,9 @@ DESTDIR="$work/mesa-stage" meson install -C "$work/mesa-build" --no-rebuild
 mkdir -p "$work/mesa-stage/usr/share/licenses/mac-steam-mesa"
 cp "$work/mesa/docs/license.rst" "$work/mesa-stage/usr/share/licenses/mac-steam-mesa/"
 {
-    printf '%s\n' "omacom/mesa $commit + patches/mesa/0001 through 0007"
+    printf '%s\n' "omacom/mesa $commit + patches/mesa/0001 through 0008"
     (cd "$project" && sha256sum patches/mesa/*.patch)
 } > "$work/mesa-stage/SOURCE.txt"
-tar --zstd -cf "$work/mesa-a196911-r1-aarch64.tar.zst" -C "$work/mesa-stage" .
+tar --zstd -cf "$work/mesa-a196911-r2-aarch64.tar.zst" -C "$work/mesa-stage" .
 cp "$work/mesa-stage/SOURCE.txt" "$work/mesa/SOURCE.txt"
-tar --exclude=.git --zstd -cf "$work/mesa-a196911-r1-source.tar.zst" -C "$work/mesa" .
+tar --exclude=.git --zstd -cf "$work/mesa-a196911-r2-source.tar.zst" -C "$work/mesa" .

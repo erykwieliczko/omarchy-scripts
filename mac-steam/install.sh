@@ -2,7 +2,7 @@
 # Install Mac Steam Ultimate WIP — Omarchy Apple Silicon.
 set -euo pipefail
 project=$(cd -- "$(dirname -- "$0")" && pwd)
-release=mac-steam-ultimate-wip-v0.5.0
+release=mac-steam-ultimate-wip-v0.5.1
 # Existing qualified components retain their immutable v0.2.0 download URLs.
 base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/mac-steam-ultimate-wip-v0.2.0
 native_base=https://github.com/erykwieliczko/omarchy-scripts/releases/download/mac-steam-ultimate-wip-v0.3.0
@@ -88,14 +88,14 @@ fi
 mkdir -p "$cache" /opt/mac-steam-ultimate/releases
 while read -r hash file; do
     [[ $file && $hash ]] || continue
-    if (( option_only )) && [[ $file != "$stack_archive" && $file != mesa-a196911-r1-* ]]; then continue; fi
+    if (( option_only )) && [[ $file != "$stack_archive" && $file != mesa-a196911-r2-* ]]; then continue; fi
     [[ $file != linux-aurora-dsc-* || $m3 == 1 ]] || continue
     if ! printf '%s  %s\n' "$hash" "$cache/$file" | sha256sum --check --status 2>/dev/null; then
         asset_base=$base
         case $file in
             fex-aoe2-b608a4767-r2-*|userpages-*) asset_base=$native_base ;;
             mac-steam-stack-*) asset_base=$stack_base ;;
-            mesa-a196911-r1-*) asset_base=$mesa_base ;;
+            mesa-a196911-r2-*) asset_base=$mesa_base ;;
         esac
         curl --fail --location --retry 3 --proto '=https' --tlsv1.2 "$asset_base/$file" -o "$cache/$file.part"
         printf '%s  %s\n' "$hash" "$cache/$file.part" | sha256sum --check --status || die "Checksum mismatch: $file"
@@ -140,9 +140,9 @@ fi
 # Extraction and overlay generation happen in the inactive release directory.
 rm -rf -- "$stage/mesa-aarch64" "$stage/sources/mesa" "$stage/x86-stage" "$stage/overlays"
 mkdir -p "$stage/mesa-aarch64" "$stage/sources/mesa" "$stage/x86-stage"
-tar --zstd -xf "$cache/mesa-a196911-r1-aarch64.tar.zst" -C "$stage/mesa-aarch64"
-tar --zstd -xf "$cache/mesa-a196911-r1-source.tar.zst" -C "$stage/sources/mesa"
-tar --zstd -xf "$cache/mesa-a196911-r1-x86.tar.zst" -C "$stage/x86-stage"
+tar --zstd -xf "$cache/mesa-a196911-r2-aarch64.tar.zst" -C "$stage/mesa-aarch64"
+tar --zstd -xf "$cache/mesa-a196911-r2-source.tar.zst" -C "$stage/sources/mesa"
+tar --zstd -xf "$cache/mesa-a196911-r2-x86.tar.zst" -C "$stage/x86-stage"
 for tree in "$stage/sources/mesa" "$stage/x86-stage/stage-x86_64" "$stage/x86-stage/stage-i386"; do
     cmp -s "$stage/mesa-aarch64/SOURCE.txt" "$tree/SOURCE.txt" ||
         die 'Private Mesa architectures and source have different provenance.'

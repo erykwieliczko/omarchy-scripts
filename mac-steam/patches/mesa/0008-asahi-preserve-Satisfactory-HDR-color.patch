@@ -1,0 +1,83 @@
+From: Eryk Wieliczko <eryk@wieliczko.ninja>
+Subject: [PATCH] hk: preserve Satisfactory HDR input across discarded color loads
+
+The Satisfactory menu blends local fog into its existing HDR scene using
+LOAD_OP_DONT_CARE for color and LOAD for depth. A tile renderer can legally
+throw away the scene, leaving only fog and a few later overlays. A same-frame
+RenderDoc comparison with lavapipe identifies the lost attachment contents.
+
+Add an application-scoped drirc workaround for the observed single-target
+RGBA16F / loaded-depth passes. Copy application inputs and normalize before
+background-program, deferred-clear and other load-state consumers. Leave
+other applications, attachment formats, clear operations and GPU admission
+checks unchanged.
+
+Assisted-by: OpenAI Codex
+
+diff --git a/src/asahi/vulkan/00-hk-defaults.conf b/src/asahi/vulkan/00-hk-defaults.conf
+index f9c07a9..5e39260 100644
+--- a/src/asahi/vulkan/00-hk-defaults.conf
++++ b/src/asahi/vulkan/00-hk-defaults.conf
+@@ -2,6 +2,7 @@
+ <driconf>
+     <device driver="hk">
+         <application name="Satisfactory" application_name_match="^(FactoryGame|Satisfactory)$">
++            <option name="hk_preserve_discarded_hdr_color" value="true" />
+             <!-- Unreal enables this optional culling test without enabling
+                  the unsupported depthBounds device feature. Keep the feature
+                  unsupported and omit the invalid optimization for this game. -->
+diff --git a/src/asahi/vulkan/hk_cmd_draw.c b/src/asahi/vulkan/hk_cmd_draw.c
+index 7d8c3b7..d10d8bb 100644
+--- a/src/asahi/vulkan/hk_cmd_draw.c
++++ b/src/asahi/vulkan/hk_cmd_draw.c
+@@ -5162,6 +5162,36 @@ hk_CmdBeginRendering(VkCommandBuffer commandBuffer,
+                      const VkRenderingInfo *pRenderingInfo)
+ {
+    VK_FROM_HANDLE(hk_cmd_buffer, cmd, commandBuffer);
++   const struct hk_instance *instance =
++      hk_physical_device_instance(hk_device_physical(hk_cmd_buffer_device(cmd)));
++   VkRenderingInfo preserved_info;
++   VkRenderingAttachmentInfo preserved_color;
++
++   /* Satisfactory's particle pass blends into the existing HDR scene, but
++    * declares DONT_CARE for color while loading depth. Immediate renderers
++    * happen to preserve color; a tile renderer can discard the entire lit
++    * scene. Preserve that input only for this application workaround, in
++    * the single HDR target / loaded depth configuration from the capture.
++    * Normalize before deferred clears and all background-program consumers.
++    */
++   if (unlikely(instance->drirc.misc.preserve_discarded_hdr_color) &&
++       pRenderingInfo->colorAttachmentCount == 1 &&
++       pRenderingInfo->pColorAttachments[0].imageView != VK_NULL_HANDLE &&
++       pRenderingInfo->pColorAttachments[0].loadOp ==
++          VK_ATTACHMENT_LOAD_OP_DONT_CARE &&
++       pRenderingInfo->pDepthAttachment &&
++       pRenderingInfo->pDepthAttachment->imageView != VK_NULL_HANDLE &&
++       pRenderingInfo->pDepthAttachment->loadOp == VK_ATTACHMENT_LOAD_OP_LOAD) {
++      VK_FROM_HANDLE(hk_image_view, view,
++                     pRenderingInfo->pColorAttachments[0].imageView);
++      if (view->vk.format == VK_FORMAT_R16G16B16A16_SFLOAT) {
++         preserved_info = *pRenderingInfo;
++         preserved_color = pRenderingInfo->pColorAttachments[0];
++         preserved_color.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
++         preserved_info.pColorAttachments = &preserved_color;
++         pRenderingInfo = &preserved_info;
++      }
++   }
+ 
+    hk_take_pending_z_store(cmd, pRenderingInfo);
+ 
+diff --git a/src/asahi/vulkan/hk_drirc_gen.py b/src/asahi/vulkan/hk_drirc_gen.py
+index 3e5835a..b3c6686 100644
+--- a/src/asahi/vulkan/hk_drirc_gen.py
++++ b/src/asahi/vulkan/hk_drirc_gen.py
+@@ -19,6 +19,9 @@ def declare_options():
+     I = drirc_gen.DrircInt
+ 
+     misc_options = [
++        B("hk_preserve_discarded_hdr_color", False,
++          "Preserve discarded HDR color in depth-loaded Satisfactory passes",
++          c_name="preserve_discarded_hdr_color"),
+         B("hk_ignore_disabled_depth_bounds", False,
+           "Ignore invalid depth-bounds state when the device feature is disabled",
+           c_name="ignore_disabled_depth_bounds"),

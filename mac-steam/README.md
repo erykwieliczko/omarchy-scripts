@@ -20,12 +20,12 @@ without a chip or model allowlist.
 | FEX fixes | `patches/fex/0002`–`0004`: invalid opcode handling on hot SMC pages, larger hot-page tracking, constant-time IR block append; `0006`: upstream PR 6081 by jgoyvaerts, avoiding duplicate concurrent compilation |
 | Mixed-page launcher | Unmodified `tools/aurora-userpages` from `omacom/linux-aurora` `3bdf11d3acb6ea1511b0611ddd40ac5336b7b215`, with corresponding source in its archive |
 | Mesa, ARM64 + x86-64 + i386 | [omacom/mesa](https://github.com/omacom/mesa/tree/a19691114759e2c0507f3502cf6166ef2c6e2e33), `a19691114759e2c0507f3502cf6166ef2c6e2e33` |
-| Mesa local fixes | `patches/mesa/0001`–`0005`: M3 G15 virtio wire conversion, queue priority limits, VM status handling, placed mapping bounds, host-backed memory accounting; `0006`–`0007`: Satisfactory disabled-depth-bounds state at draw and pipeline creation |
+| Mesa local fixes | `patches/mesa/0001`–`0005`: M3 G15 virtio wire conversion, queue priority limits, VM status handling, placed mapping bounds, host-backed memory accounting; `0006`–`0007`: Satisfactory disabled-depth-bounds state at draw and pipeline creation; `0008`: preserve HDR color across the game's discarded color loads |
 | Wine focus repair | `ValveSoftware/wine` `7b3ceaf8644bb5d57140903e12897efac69be16a` + `patches/wine/0001`, qualified for Proton Experimental `11.0-20261027b` |
 | M3 kernel | `omacom/linux-aurora` `3bdf11d3acb6ea1511b0611ddd40ac5336b7b215`, package `linux-aurora-dsc 7.2.11.aurora11-3.1`, kernel release `7.2.11-11-dsc3-ARCH` |
 | M3 kernel fixes | DSC sequencing, display/audio hold-link, Wi-Fi country map, native framebuffer retirement, optional T6030 swap timestamps |
 | Custom Steam stack | x86 Proton Experimental `11.0-20261027b`, patched FEX, X11 focus repair and Steam Runtime `4.0.20261021.265997`, bundled in `mac-steam-ultimate-wip-v0.4.0` |
-| Binary assets | Mesa is from `v0.5.0`, the stack from `v0.4.0`, FEX r2 and userpages from `v0.3.0`, and the kernel/Wine components from `v0.2.0`, all pinned by [SHA-256](artifacts.sha256) |
+| Binary assets | Mesa is from `v0.5.1`, the stack from `v0.4.0`, FEX r2 and userpages from `v0.3.0`, and the kernel/Wine components from `v0.2.0`, all pinned by [SHA-256](artifacts.sha256) |
 
 FEX is built with Steam support, bundled fmt/xxhash, release optimization, all
 three local fixes and upstream PR 6081. The tested configuration enables seccomp
@@ -231,10 +231,12 @@ The preparer installs only the rebuilt `winex11.so` into the qualified Proton Ex
 
 ## Validation
 
-The v0.5.0 Mesa update fixes Satisfactory Vulkan menu startup with two scoped
-depth-bounds workarounds. Vulkan measured about 6.4 FPS versus the earlier DX11
-9 FPS baseline at 3024×1964, but still has incorrect lighting; DX11 is the tested
-launch setting. This does not qualify Vulkan gameplay. See [VALIDATION.md](VALIDATION.md).
+The v0.5.1 Mesa update fixes Satisfactory's dark Vulkan menu lighting with a
+scoped HDR attachment preservation workaround. Replaying one captured menu frame
+on the M3 and same-commit lavapipe gives 34.1 dB PSNR and 1.59/255 mean RGB error;
+bright edges retain small differences. The previous v0.5.0 Vulkan measurement
+was about 6.4 FPS versus an earlier DX11 baseline of 9 FPS at 3024×1964. No new
+FPS or gameplay qualification is claimed. See [VALIDATION.md](VALIDATION.md).
 
 The M3 Pro restoration exercised the 4K VM, private GPU driver, x86 Vulkan placed-mapping guard, and the patched FEX signal/SMC regressions. After sign-in and the normal downloads, the real Valve tool was patched and AoE2 reached gameplay at 3024×1964. The general Wine focus repair also passed an injected stale offer in the real game and F10 after Alt-Tab, with no KDE focus rule. Detailed results and the startup driver-discovery fix are in [VALIDATION.md](VALIDATION.md). No new game FPS measurement is claimed.
 
@@ -321,7 +323,7 @@ For ARM Mesa, also install `meson llvm libclc spirv-llvm-translator spirv-tools 
 bash mac-steam/build/mesa-native.sh "$HOME/.cache/mac-steam-build"
 ```
 
-For both x86 Mesa stacks, run [build/mesa-x86.sh](build/mesa-x86.sh) on an x86-64 Linux machine with Docker. It checks out the same base, applies the seven patches, and uses [build/mesa-x86-container.sh](build/mesa-x86-container.sh) inside Arch Linux. The container installs its own build dependencies, including multilib.
+For both x86 Mesa stacks, run [build/mesa-x86.sh](build/mesa-x86.sh) on an x86-64 Linux machine with Docker. It checks out the same base, applies the eight patches, and uses [build/mesa-x86-container.sh](build/mesa-x86-container.sh) inside Arch Linux. The container installs its own build dependencies, including multilib.
 
 `build/overlays.sh X86_STAGE_PARENT OUTPUT_DIRECTORY` combines those staged drivers with the distribution's base overlays and adds Valve's graphics-provider manifest. Images always use 4096-byte blocks.
 
