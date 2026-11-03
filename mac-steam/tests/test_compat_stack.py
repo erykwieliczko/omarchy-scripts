@@ -88,7 +88,7 @@ class CustomStack(unittest.TestCase):
         new = self.config.read_text()
         self.assertIn('"Unrelated" "literal { brace } and \\\"quote\\\"" // comment', new)
         self.assertIn('"123" { "name" "user choice" }', new)
-        self.assertEqual(new.count('"name"\t\t"mac_steam_ultimate"'), 2)
+        self.assertEqual(new.count('"name"\t\t"' + stack.TOOL_NAME + '"'), 2)
         self.assertEqual(self.config.with_name('config.vdf.pre-mac-stack').read_text(), self.original)
         self.assertFalse((tool / 'default-pending').exists())
         self.assertEqual(stack.default_config(new), new)
@@ -155,6 +155,64 @@ class CustomStack(unittest.TestCase):
         self.assertIn(stack.TOOL_NAME, self.config.read_text())
         self.assertFalse((tool / 'default-pending').exists())
         self.assertEqual(os.stat(self.config).st_mode & 0o777, 0o600)
+
+    def test_old_bundle_repairs_cloud_registration_and_only_legacy_selections(self):
+        bundle = self.bundle()
+        (bundle / 'compatibilitytool.vdf').write_text('"' + stack.LEGACY_TOOL_NAME + '"')
+        old = self.original.replace('"old"', '"' + stack.LEGACY_TOOL_NAME + '"')
+        old = old.replace('proton_experimental', stack.LEGACY_TOOL_NAME)
+        old = old.replace('"user choice"', '"' + stack.LEGACY_TOOL_NAME + '"')
+        self.config.write_text(old)
+        with patch.object(stack, 'steam_running', return_value=False):
+            tool = stack.prepare(self.root, [], self.prefix)
+        self.assertEqual((tool / 'compatibilitytool.vdf').read_text(), '"' + stack.TOOL_NAME + '"')
+        new = self.config.read_text()
+        self.assertIn('"123" { "name" "' + stack.TOOL_NAME + '" }', new)
+        self.assertIn('"Unrelated" "literal { brace } and \\\"quote\\\"" // comment', new)
+        # A later upgrade must respect a deliberately changed default and app choice.
+        manual = self.original.replace('proton_experimental', 'other proton')
+        self.config.write_text(manual)
+        with patch.object(stack, 'steam_running', return_value=False):
+            stack.prepare(self.root, [], self.prefix)
+        self.assertEqual(self.config.read_text(), manual)
+
+    def test_cloud_registration_migration_waits_for_steam_and_preserves_modes(self):
+        self.bundle()
+        with patch.object(stack, 'steam_running', return_value=False):
+            tool = stack.prepare(self.root, [], self.prefix)
+        registration = tool / 'compatibilitytool.vdf'
+        registration.write_text('"' + stack.LEGACY_TOOL_NAME + '"')
+        old = self.original.replace('"old"', '"' + stack.LEGACY_TOOL_NAME + '"')
+        self.config.write_text(old)
+        self.config.chmod(0o600)
+        with patch.object(stack, 'steam_running', return_value=True):
+            stack.prepare(self.root, [], self.prefix)
+        self.assertEqual(self.config.read_text(), old)
+        self.assertIn('"' + stack.LEGACY_TOOL_NAME + '"', registration.read_text())
+        with patch.object(stack, 'steam_running', return_value=False):
+            stack.prepare(self.root, [], self.prefix)
+        self.assertIn(stack.TOOL_NAME, self.config.read_text())
+        self.assertEqual(self.config.stat().st_mode & 0o777, 0o600)
+
+    def test_cloud_registration_failure_restores_previous_metadata(self):
+        self.bundle()
+        with patch.object(stack, 'steam_running', return_value=False):
+            tool = stack.prepare(self.root, [], self.prefix)
+        registration = tool / 'compatibilitytool.vdf'
+        registration.write_text('"' + stack.LEGACY_TOOL_NAME + '"')
+        old = self.original.replace('"old"', '"' + stack.LEGACY_TOOL_NAME + '"')
+        self.config.write_text(old)
+        original_atomic = stack.atomic
+        def fail_config(path, *args, **kwargs):
+            if path == self.config:
+                raise OSError('simulated write failure')
+            return original_atomic(path, *args, **kwargs)
+        with patch.object(stack, 'steam_running', return_value=False), \
+                patch.object(stack, 'atomic', side_effect=fail_config):
+            with self.assertRaisesRegex(OSError, 'simulated write failure'):
+                stack.refresh_registration(self.root, tool)
+        self.assertEqual(registration.read_text(), '"' + stack.LEGACY_TOOL_NAME + '"')
+        self.assertEqual(self.config.read_text(), old)
 
     def test_bundle_upgrade_is_deferred_then_backed_up_outside_tool_discovery(self):
         bundle = self.bundle('r1')
@@ -232,6 +290,9 @@ class CustomStack(unittest.TestCase):
         metadata = json.loads(subprocess.check_output(['tar', '--zstd', '-xOf', str(output), './stack.json'], text=True))
         self.assertEqual(metadata['build_id'], builder.BUILD_ID)
         self.assertNotIn(str(self.root), json.dumps(metadata))
+        registration = subprocess.check_output(['tar', '--zstd', '-xOf', str(output), './compatibilitytool.vdf'], text=True)
+        tools = stack.find(stack.nodes(registration), 'compat_tools')
+        self.assertIn('proton', tools['children'][0]['key'].lower())
 
 
 if __name__ == '__main__':

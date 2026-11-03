@@ -67,6 +67,22 @@ tools are preserved. Configuration writes occur while Steam is stopped, with a
 Steam has not been launched yet. Later manual choices are respected. The entry
 can also be selected per game in Properties → Compatibility.
 
+The internal identifier is `mac_steam_ultimate_proton`. Steam's Windows
+AutoCloud mapping requires `proton` in this identifier, even when the tool's
+manifest already declares its Proton layer. Older registrations and their
+existing selections are migrated while Steam is stopped, with backups and
+without changing other compatibility choices. The prebuilt v0.4.0 bundle is
+repaired during registration; its binaries and prefixes remain in place.
+This fixed Satisfactory reporting successful sync while skipping every cloud
+save because it could not resolve the Windows save path. The M3 subsequently
+downloaded all 11 existing saves.
+
+Satisfactory's default DirectX 12 renderer currently crashes during resource
+creation on this stack (`E_INVALIDARG`). Adding `-dx11` in its Steam
+Properties → General → Launch Options reached the main menu on the M3.
+[Coffee Stain's support page](https://www.satisfactorygame.com/support/) documents
+this renderer override. This verifies startup, not extended gameplay.
+
 For an existing AoE2 ARM64 prefix, the preparer retains the complete original as
 `813780.arm64-before-mac-stack-TIMESTAMP`, copies Games/Documents/Saved Games and
 FEX configuration into a clean x86 compatibility directory, and lets Proton and

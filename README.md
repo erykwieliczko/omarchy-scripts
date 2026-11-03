@@ -50,6 +50,12 @@ The script asks for sudo, downloads a pinned installer and checksum-verified bin
 
 Sign in to Steam normally and install AoE2 DE. **Mac Steam Ultimate (FEX + Proton 11)** is installed as a real Steam compatibility option and selected as the initial default before Steam starts. Find it under **Steam → Settings → Compatibility**, or per game under **Properties → Compatibility**. The bundled x86 Wine/Proton, patched FEX and Steam Runtime are pinned independently of Valve's Experimental updates; no separate Valve tool download is needed. Later manual compatibility choices are respected. Existing ARM64 AoE2 prefixes are backed up and their saves copied into a clean x86 prefix.
 
+The custom option also restores Windows Steam Cloud saves; existing installations
+can get the registration repair with `--steam-option-only` while Steam is closed.
+For Satisfactory on this stack, add `-dx11` under its **Properties → General →
+Launch Options** to avoid the DirectX 12 startup crash. Main-menu startup has
+been verified on the M3; extended gameplay has not.
+
 The installer is repeatable, keeps backups of replaced Steam files, and supports a root invocation with `--user YOUR_ACCOUNT`. Close existing Steam/muvm applications before installing. A first installation downloads the checksum-verified runtime bundle and system components before Steam's own client and game downloads. Keep at least 10 GiB free, including 3 GiB in your home filesystem, plus space for games.
 
 To add or update just the Steam option on an existing Ultimate installation,

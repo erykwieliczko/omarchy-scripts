@@ -12,7 +12,10 @@ import subprocess
 import tempfile
 import time
 
-TOOL_NAME = 'mac_steam_ultimate'
+# Steam's Windows AutoCloud path mapping also checks the tool identifier for
+# "proton"; compatmanager_layer_name alone does not enable it.
+TOOL_NAME = 'mac_steam_ultimate_proton'
+LEGACY_TOOL_NAME = 'mac_steam_ultimate'
 DISPLAY_NAME = 'Mac Steam Ultimate (FEX + Proton 11)'
 DIRECTORY = 'mac-steam-ultimate'
 TOKEN = re.compile(r'//[^\n]*|"(?:\\.|[^"\\])*"|[{}]')
@@ -101,7 +104,7 @@ def default_config(text):
         # Preserve a deliberately selected per-game tool, other than our old setup.
         if item and appid != '0':
             name = next((i.get('value') for i in item.get('children', []) if i['key'] == 'name'), None)
-            if name not in ('proton_experimental', TOOL_NAME):
+            if name not in ('proton_experimental', LEGACY_TOOL_NAME, TOOL_NAME):
                 continue
         entry = (f'"{appid}"\n\t\t\t\t\t{{\n'
                  f'\t\t\t\t\t\t"name"\t\t"{TOOL_NAME}"\n'
@@ -126,6 +129,44 @@ def steam_running(root):
         except (OSError, ValueError):
             pass
     return False
+
+
+def refresh_registration(root, tool):
+    """Repair old bundle metadata and selections without resetting preferences."""
+    if steam_running(root):
+        return
+    registration = tool / 'compatibilitytool.vdf'
+    original = registration.read_text()
+    updates = [(registration, original,
+                original.replace('"' + LEGACY_TOOL_NAME + '"', '"' + TOOL_NAME + '"'))]
+    config = root / 'config/config.vdf'
+    if config.is_file():
+        old = config.read_text()
+        mapping = find(nodes(old), 'CompatToolMapping')
+        replacements = []
+        for item in mapping.get('children', []) if mapping else []:
+            for value in item.get('children', []):
+                if value['key'] == 'name' and value.get('value') == LEGACY_TOOL_NAME:
+                    replacements.append((value['value_start'], value['value_end']))
+        new = old
+        for start, end in sorted(replacements, reverse=True):
+            new = new[:start] + '"' + TOOL_NAME + '"' + new[end:]
+        updates.append((config, old, new))
+    changed = []
+    try:
+        for path, old, new in updates:
+            if old == new:
+                continue
+            backup = path.with_name(path.name + '.pre-proton-cloud-name')
+            if not backup.exists():
+                shutil.copy2(path, backup)
+            mode = path.stat().st_mode & 0o777
+            atomic(path, new, mode)
+            changed.append((path, old, mode))
+    except BaseException:
+        for path, old, mode in reversed(changed):
+            atomic(path, old, mode)
+        raise
 
 
 def set_default(root, tool):
@@ -245,6 +286,7 @@ def prepare_bundle(root, libraries, prefix, make_default=False):
         finally:
             if stage.exists():
                 shutil.rmtree(stage)
+    refresh_registration(root, tool)
     if make_default or (tool / 'default-pending').exists():
         if set_default(root, tool):
             print(f'Steam default compatibility tool: {DISPLAY_NAME}', flush=True)
@@ -332,6 +374,7 @@ def prepare(root, libraries, prefix, make_default=False, from_steam=False):
         finally:
             if stage.exists():
                 shutil.rmtree(stage)
+    refresh_registration(root, tool)
     if make_default or (tool / 'default-pending').exists():
         if set_default(root, tool):
             print(f'Steam default compatibility tool: {DISPLAY_NAME}', flush=True)
