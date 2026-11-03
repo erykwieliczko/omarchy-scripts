@@ -44,6 +44,5 @@ for a in x86_64 i386; do
   rm -rf /out/stage-$a; DESTDIR=/out/stage-$a meson install -C /out/$a --no-rebuild >/dev/null
   mkdir -p /out/stage-$a/usr/share/licenses/mac-steam-mesa
   cp /src/docs/license.rst /out/stage-$a/usr/share/licenses/mac-steam-mesa/
-  printf '%s\n' 'omacom/mesa 672657e05e6b382a0203975f7a26c46f9a674973 + patches/mesa/0001 through 0005' > /out/stage-$a/SOURCE.txt
 done
 echo X86_MESA_READY

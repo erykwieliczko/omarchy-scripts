@@ -1,5 +1,40 @@
 # Validation
 
+## Current Aurora Mesa and Satisfactory Vulkan startup — 2026-11-03
+
+Release v0.5.0 rebases the private ARM64, x86-64 and i386 Mesa builds onto
+`omacom/mesa` integration/aurora `a19691114759e2c0507f3502cf6166ef2c6e2e33`.
+All five existing patches apply unchanged. Two additional patches normalize
+Satisfactory's invalid depth-bounds state at pipeline creation and draw time.
+The device still reports `depthBounds=false`; other applications and native
+GPU/firmware/kernel admission checks keep their existing behavior.
+
+On the M3 Pro / G15S B1, kernel `7.2.11-11-dsc3-ARCH`, Satisfactory 1.2.4.1
+(build 513885) now reaches the Vulkan SM5 main menu instead of failing
+`vkEndCommandBuffer` with `VK_ERROR_FEATURE_NOT_PRESENT` after two frames.
+At 3024×1964 with the existing graphics settings, after waiting ten seconds
+in the menu, an eight-second XPresent capture recorded 50 presentations,
+**6.367/s**. The in-game FPS display was about 6.5. This is presentation feedback,
+not a physical-panel FPS measurement. The preceding DX11 baseline is about 9 FPS.
+No save or playable world was loaded.
+
+Vulkan remains experimental: the menu has incorrect dark lighting. Separate
+compute-pipeline failures request unsupported SPIR-V `Int64ImageEXT` image types;
+we have not established that they cause the lighting defect. Neither 64-bit
+image atomics nor another unimplemented feature is advertised as supported.
+Runtime `r.AllowDepthBoundsTest=0` and `r.ShadowQuality=0` did not correct the
+image. Those diagnostic changes were per-process; normal settings were retained.
+DX11 reached its correctly lit menu on the new seven-patch build and remains
+the selected Steam launch option for Satisfactory.
+
+All three binary stages and the corresponding source archive carry identical
+`SOURCE.txt` records with the base commit and hashes of all seven patches.
+The installer verifies matching provenance before activation. The real
+`--steam-option-only` upgrade updated private graphics while retaining the
+installed boot stack, and the previous release remains available. Regression
+validation: 59 Steam tests, 14 shared tests, shell syntax and ShellCheck 0.11.0.
+This is menu/startup validation, not full-game or other-Mac qualification.
+
 ## Dedicated Steam compatibility option — 2026-11-02
 
 Release v0.4.0 adds the prebuilt `mac-steam-stack-11.0-20261027b-r1-aarch64.tar.zst`,

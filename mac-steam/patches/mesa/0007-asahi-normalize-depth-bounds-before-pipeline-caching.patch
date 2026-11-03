@@ -1,0 +1,73 @@
+From: Eryk Wieliczko <eryk@wieliczko.ninja>
+Subject: [PATCH] hk: normalize invalid depth bounds before pipeline caching
+
+Apply the Satisfactory workaround before the common pipeline runtime
+records fixed state, hashes it and specializes fragment shaders. The
+compiler must not fold tests based on state that the draw path disables.
+
+Copy application-owned inputs, preserve allocation callbacks and batch
+semantics, and retain draw-time normalization for dynamic state.
+
+Assisted-by: OpenAI Codex
+
+diff --git a/src/asahi/vulkan/hk_shader.c b/src/asahi/vulkan/hk_shader.c
+index 77d3dbd..02e1b2b 100644
+--- a/src/asahi/vulkan/hk_shader.c
++++ b/src/asahi/vulkan/hk_shader.c
+@@ -7878,9 +7878,55 @@ hk_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache,
+                            const VkAllocationCallbacks *pAllocator,
+                            VkPipeline *pPipelines)
+ {
++   VK_FROM_HANDLE(hk_device, dev, device);
++   const struct hk_instance *instance =
++      hk_physical_device_instance(hk_device_physical(dev));
++   VkGraphicsPipelineCreateInfo *infos = NULL;
++   VkPipelineDepthStencilStateCreateInfo *depth = NULL;
++   void *temporary = NULL;
++   if (instance->drirc.misc.ignore_disabled_depth_bounds &&
++       !dev->vk.enabled_features.depthBounds) {
++      bool needs_fix = false;
++      for (uint32_t i = 0; i < createInfoCount; i++) {
++         needs_fix |= pCreateInfos[i].pDepthStencilState &&
++                      pCreateInfos[i].pDepthStencilState->depthBoundsTestEnable;
++      }
++      if (needs_fix) {
++         /* Normalize before the runtime hashes the pipeline and specializes
++          * its shaders. Draw-time normalization alone leaves the fragment
++          * compiler reasoning about a test that will never execute.
++          */
++         const size_t per_pipeline = sizeof(*infos) + sizeof(*depth) + 16;
++         if (createInfoCount <= SIZE_MAX / per_pipeline) {
++            VK_MULTIALLOC(ma);
++            vk_multialloc_add(&ma, &infos, VkGraphicsPipelineCreateInfo,
++                              createInfoCount);
++            vk_multialloc_add(&ma, &depth,
++                              VkPipelineDepthStencilStateCreateInfo,
++                              createInfoCount);
++            temporary = vk_multialloc_alloc2(
++               &ma, &dev->vk.alloc, pAllocator,
++               VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
++         }
++         if (!temporary) {
++            for (uint32_t i = 0; i < createInfoCount; i++)
++               pPipelines[i] = VK_NULL_HANDLE;
++            return vk_error(dev, VK_ERROR_OUT_OF_HOST_MEMORY);
++         }
++         for (uint32_t i = 0; i < createInfoCount; i++) {
++            infos[i] = pCreateInfos[i];
++            if (infos[i].pDepthStencilState) {
++               depth[i] = *infos[i].pDepthStencilState;
++               depth[i].depthBoundsTestEnable = VK_FALSE;
++               infos[i].pDepthStencilState = &depth[i];
++            }
++         }
++      }
++   }
+    VkResult result = vk_common_CreateGraphicsPipelines(
+-      device, pipelineCache, createInfoCount, pCreateInfos, pAllocator,
++      device, pipelineCache, createInfoCount, infos ? infos : pCreateInfos, pAllocator,
+       pPipelines);
++   vk_free2(&dev->vk.alloc, pAllocator, temporary);
+ 
+    /* VK_PIPELINE_COMPILE_REQUIRED is the answer the application asked for
+     * with VK_PIPELINE_CREATE_2_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT, not a

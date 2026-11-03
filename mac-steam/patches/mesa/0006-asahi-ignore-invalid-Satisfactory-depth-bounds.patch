@@ -1,0 +1,80 @@
+From: Eryk Wieliczko <eryk@wieliczko.ninja>
+Subject: [PATCH] hk: ignore disabled depth bounds for Satisfactory
+
+Satisfactory 1.2.4.1 enables depthBoundsTestEnable in graphics pipelines
+without enabling the unsupported depthBounds device feature. The native
+AGX3 command stream correctly refuses this state.
+
+Add an application-specific drirc workaround to omit that invalid culling
+optimization before depth-state consumers. Retain the depthBounds=false
+capability and all native command-stream guards. Other applications and
+devices with the feature enabled retain their original state.
+
+Assisted-by: OpenAI Codex
+
+diff --git a/src/asahi/vulkan/00-hk-defaults.conf b/src/asahi/vulkan/00-hk-defaults.conf
+index d37f089..f9c07a9 100644
+--- a/src/asahi/vulkan/00-hk-defaults.conf
++++ b/src/asahi/vulkan/00-hk-defaults.conf
+@@ -1,6 +1,12 @@
+ <?xml version="1.0"?>
+ <driconf>
+     <device driver="hk">
++        <application name="Satisfactory" application_name_match="^(FactoryGame|Satisfactory)$">
++            <!-- Unreal enables this optional culling test without enabling
++                 the unsupported depthBounds device feature. Keep the feature
++                 unsupported and omit the invalid optimization for this game. -->
++            <option name="hk_ignore_disabled_depth_bounds" value="true" />
++        </application>
+         <engine engine_name_match="DXVK|vkd3d">
+            <!--
+               The amount of bug reports we get about Honeykrisp being slow
+diff --git a/src/asahi/vulkan/hk_cmd_draw.c b/src/asahi/vulkan/hk_cmd_draw.c
+index 81c7c77..7d8c3b7 100644
+--- a/src/asahi/vulkan/hk_cmd_draw.c
++++ b/src/asahi/vulkan/hk_cmd_draw.c
+@@ -49,6 +49,7 @@
+ #include "hk_agx3_vdm_decode.h"
+ #include "hk_physical_device.h"
+ #include "hk_private.h"
++#include "vk_common_entrypoints.h"
+ #include "asahi/lib/agx_m5_va.h"
+ #include "hk_shader.h"
+ #include "hk_native_write_class.h"
+@@ -11246,6 +11247,22 @@ hk_flush_gfx_state(struct hk_cmd_buffer *cmd, uint32_t draw_id,
+    struct hk_graphics_state *gfx = &cmd->state.gfx;
+    struct hk_descriptor_state *desc = &gfx->descriptors;
+ 
++   /* Satisfactory enables depth bounds even though it did not enable the
++    * depthBounds device feature. Treat this invalid state as disabled for
++    * the application workaround only. Normalize before any depth-state
++    * consumers, including shader linking and ZLS attachment tracking, and
++    * use the common setter so dirty state and pipeline rebinding stay valid.
++    * Do not advertise support or bypass the native command-stream guards.
++    */
++   const struct hk_instance *instance =
++      hk_physical_device_instance(hk_device_physical(dev));
++   if (unlikely(instance->drirc.misc.ignore_disabled_depth_bounds) &&
++       !dev->vk.enabled_features.depthBounds &&
++       cmd->vk.dynamic_graphics_state.ds.depth.bounds_test.enable) {
++      vk_common_CmdSetDepthBoundsTestEnable(
++         vk_command_buffer_to_handle(&cmd->vk), VK_FALSE);
++   }
++
+    /* Every stage hk_flush_shaders() reads has to actually be bound.  Binding
+     * VK_NULL_HANDLE for a stage is how CmdBindShadersEXT *unbinds* it, and it
+     * is also what a client gets when we refuse to compile that stage's shader
+diff --git a/src/asahi/vulkan/hk_drirc_gen.py b/src/asahi/vulkan/hk_drirc_gen.py
+index 2d66137..3e5835a 100644
+--- a/src/asahi/vulkan/hk_drirc_gen.py
++++ b/src/asahi/vulkan/hk_drirc_gen.py
+@@ -19,6 +19,9 @@ def declare_options():
+     I = drirc_gen.DrircInt
+ 
+     misc_options = [
++        B("hk_ignore_disabled_depth_bounds", False,
++          "Ignore invalid depth-bounds state when the device feature is disabled",
++          c_name="ignore_disabled_depth_bounds"),
+         I("hk_geometry_heap_size_mb", 128, 16, 1024,
+           "Size in MiB of the tessellation/geometry-shader scratch heap",
+           c_name="geometry_heap_size_mb"),
