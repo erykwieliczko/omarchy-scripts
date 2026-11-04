@@ -56,10 +56,15 @@ mac_install_packages gdm gnome-shell gnome-session gnome-settings-daemon \
     gnome-calculator gnome-calendar gnome-contacts gnome-clocks gnome-font-viewer \
     gnome-disk-utility gnome-logs gnome-system-monitor gnome-backgrounds gnome-tweaks \
     gnome-software gnome-user-docs yelp loupe papers showtime snapshot simple-scan \
+    gnome-weather gnome-maps gnome-characters gnome-connections gnome-tour \
+    seahorse baobab sushi file-roller decibels geary libreoffice-fresh gnome-remote-desktop \
+    gnome-extensions-app gnome-shell-extensions gnome-shell-extension-appindicator \
+    flatpak adwaita-fonts adwaita-icon-theme gst-libav gst-plugins-good \
+    gst-plugins-bad gst-plugins-ugly gvfs-goa gvfs-nfs \
     xdg-desktop-portal-gnome xdg-user-dirs-gtk gvfs gvfs-mtp gvfs-smb \
     python python-gobject xorg-xwayland
 install -d -m755 /usr/local/lib/omarchy-gnome/bin
-for file in start-gnome session-env.sh setup-user.py configure.py switch-desktop environment-generator; do
+for file in start-gnome session-env.sh setup-user.py desktop-defaults.py configure.py switch-desktop environment-generator; do
     install -m755 "$project/runtime/$file" "/usr/local/lib/omarchy-gnome/$file"
 done
 for file in omarchy uwsm-app; do
@@ -93,6 +98,12 @@ fi
 runuser -u "$account" -- env "XDG_RUNTIME_DIR=/run/user/$uid" \
     "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" \
     python3 /usr/local/lib/omarchy-gnome/setup-user.py
+runuser -u "$account" -- env "XDG_RUNTIME_DIR=/run/user/$uid" XDG_CURRENT_DESKTOP=GNOME \
+    "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" \
+    python3 /usr/local/lib/omarchy-gnome/desktop-defaults.py
+runuser -u "$account" -- env "XDG_RUNTIME_DIR=/run/user/$uid" \
+    "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" \
+    flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 if [[ -S /run/user/$uid/bus ]]; then
     runuser -u "$account" -- env "XDG_RUNTIME_DIR=/run/user/$uid" systemctl --user daemon-reload
 fi

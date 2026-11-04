@@ -1,6 +1,8 @@
 """Check login preferences and GNOME integration without touching the host."""
 import configparser
+import ast
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -70,6 +72,60 @@ class GNOMEIntegration(unittest.TestCase):
             generator = config / 'systemd/user-environment-generators/90-omarchy-gnome'
             self.assertEqual(os.readlink(generator), '/usr/local/lib/omarchy-gnome/environment-generator')
 
+    def test_fcitx_autostart_is_only_excluded_from_gnome(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            path = home / '.config/autostart/org.fcitx.Fcitx5.desktop'
+            path.parent.mkdir(parents=True)
+            original = '[Desktop Entry]\nType=Application\nExec=fcitx5\nNotShowIn=Other;\n'
+            path.write_text(original)
+            setup = module('setup-user')
+            setup.configure(home)
+            setup.configure(home)
+            config = configparser.ConfigParser()
+            config.read(path)
+            self.assertEqual(config['Desktop Entry']['NotShowIn'], 'Other;GNOME;')
+            self.assertEqual(config['Desktop Entry']['Exec'], 'fcitx5')
+            self.assertNotIn('Hidden', config['Desktop Entry'])
+            self.assertEqual(path.with_suffix('.desktop.pre-omarchy-gnome').read_text(), original)
+
+    def test_desktop_profile_preserves_later_choices_power_favorites_and_custom_shortcuts(self):
+        class Value:
+            def __init__(self, value): self.value = value
+            def print_(self, unused): return repr(self.value)
+            def unpack(self): return self.value
+            def get_type_string(self): return 'fixture'
+        class Settings:
+            def __init__(self, schema): self.values = store.setdefault(schema, {})
+            def get_user_value(self, key): return self.values.get(key)
+            def get_value(self, key): return self.values.get(key, Value([]))
+            def set_value(self, key, value): self.values[key] = value; return True
+            def reset(self, key): self.values.pop(key, None)
+        media = 'org.gnome.settings-daemon.plugins.media-keys'
+        power = 'org.gnome.settings-daemon.plugins.power'
+        interface = 'org.gnome.desktop.interface'
+        store = {media: {'custom-keybindings': Value(['/owner-shortcut/'])},
+                 'org.gnome.shell': {'favorite-apps': Value(['owner.desktop'])},
+                 power: {'sleep-inactive-ac-type': Value('nothing')},
+                 interface: {'icon-theme': Value('OwnerIcons')}}
+        defaults = module('desktop-defaults')
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            defaults.apply_once(state, Settings, lambda kind, value: Value(value), 'browser.desktop')
+            self.assertEqual(store['org.gnome.shell']['favorite-apps'].unpack(), ['owner.desktop'])
+            self.assertIn('/owner-shortcut/', store[media]['custom-keybindings'].unpack())
+            self.assertEqual(store[power]['sleep-inactive-ac-type'].unpack(), 'nothing')
+            store[interface]['icon-theme'] = Value('LaterChoice')
+            defaults.apply_once(state, Settings, lambda kind, value: Value(value), 'other.desktop')
+            self.assertEqual(store[interface]['icon-theme'].unpack(), 'LaterChoice')
+            backup = next(state.glob('desktop-before-*.json'))
+            defaults.restore(json.loads(backup.read_text()), Settings,
+                             lambda value: Value(ast.literal_eval(value)))
+            self.assertEqual(store[interface]['icon-theme'].unpack(), 'OwnerIcons')
+            self.assertEqual(store[media]['custom-keybindings'].unpack(), ['/owner-shortcut/'])
+            self.assertEqual(store['org.gnome.shell']['favorite-apps'].unpack(), ['owner.desktop'])
+            self.assertEqual(store[power]['sleep-inactive-ac-type'].unpack(), 'nothing')
+
     def test_session_removes_inherited_hyprland_and_plasma_settings(self):
         environment = dict(os.environ, PATH='/usr/local/lib/omarchy-kde/bin:/usr/bin',
                            GTK_THEME='wrong', GDK_SCALE='2', QT_QPA_PLATFORMTHEME='kde',
@@ -82,9 +138,13 @@ class GNOMEIntegration(unittest.TestCase):
         self.assertEqual(actual['XDG_CURRENT_DESKTOP'], 'GNOME')
         self.assertTrue(actual['PATH'].startswith('/usr/local/lib/omarchy-gnome/bin:'))
         self.assertNotIn('/usr/local/lib/omarchy-kde/bin', actual['PATH'])
-        for key in ('GTK_THEME', 'GDK_SCALE', 'QT_QPA_PLATFORMTHEME', 'QT_IM_MODULE',
-                    'INPUT_METHOD', 'HYPRLAND_INSTANCE_SIGNATURE', 'KDE_FULL_SESSION'):
+        for key in ('GTK_THEME', 'GDK_SCALE', 'QT_QPA_PLATFORMTHEME',
+                    'HYPRLAND_INSTANCE_SIGNATURE', 'KDE_FULL_SESSION'):
             self.assertNotIn(key, actual)
+        for key in ('GTK_IM_MODULE', 'QT_IM_MODULE', 'SDL_IM_MODULE', 'INPUT_METHOD'):
+            self.assertEqual(actual[key], '')
+        self.assertEqual(actual['XMODIFIERS'], '@im=ibus')
+        self.assertEqual(actual['QT_IM_MODULES'], 'wayland;ibus')
 
     def test_environment_generator_only_changes_gnome(self):
         for desktop in ('GNOME', 'Hyprland', 'KDE'):

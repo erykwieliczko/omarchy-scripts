@@ -1,6 +1,6 @@
 # Install Mac GNOME Ultimate WIP
 
-Install standard GNOME, its desktop apps, and GDM password login on an existing
+Install a complete, Fedora-inspired GNOME desktop with GDM password login on an existing
 Omarchy installation with Arch packages. There is no Mac model or CPU allowlist.
 
 ```bash
@@ -26,14 +26,58 @@ settings and adds GNOME-aware launch, lock and logout wrappers for existing
 Omarchy helpers. Omarchy services that depend on Hyprland are skipped inside
 GNOME using per-user systemd conditions; they remain available in other desktops.
 Omarchy's Mac display-readiness and first-boot conditions are carried into GDM.
-Personal power, locking and theme preferences are not overwritten by installation.
+Personal power, locking and display preferences are not overwritten by installation.
+
+The first run seeds a dark Adwaita desktop, dynamic workspaces, edge tiling,
+minimize/maximize buttons, battery percentage and the weekday in the clock.
+The MacBook touchpad gets tap-to-click, two-finger right-click and scrolling,
+natural scrolling and typing protection. Native GNOME workspace/overview gestures
+remain available. The favorites bar uses the existing default browser, Files,
+Console, Text Editor, Software and Settings; an explicitly customized favorites
+bar is preserved. The sole enabled extra Shell extension is Ubuntu's
+AppIndicator support, for Steam and other background app tray icons. Official
+GNOME extensions and their management app are installed for optional customization.
+Newly installed extensions become available in an existing session after signing
+out and back in.
+
+Useful shortcuts include:
+
+| Shortcut | Action |
+| --- | --- |
+| Super+Enter or Ctrl+Alt+T | Console |
+| Super+E | Files |
+| Alt+Tab | Individual windows |
+| Super+Tab | Applications |
+| Super+Left / Right | Tile a window |
+
+These preferences are applied once. Later changes survive installer reruns.
+Prior values are backed up in `~/.local/state/omarchy-gnome/desktop-before-*.json`;
+restore one as your desktop user with
+`python3 /usr/local/lib/omarchy-gnome/desktop-defaults.py --restore BACKUP.json`.
+Your existing custom shortcuts are retained. The profile does not change monitor
+resolution, scaling, refresh rate, keyboard layout, browser choice or idle policy.
+
+GNOME uses its own IBus input service. Fcitx's XDG autostart is excluded only from
+GNOME, and inherited Fcitx module variables are cleared from session and D-Bus
+activation environments. This prevents Fcitx's IBus compatibility endpoint from
+blocking GNOME's native input service; Fcitx remains usable in other desktops.
 
 An explicit current app set is installed instead of the whole `gnome` package
 group: the tested repositories contained obsolete GNOME Books/Boxes builds whose
 removed libraries prevented the group transaction. Included apps cover Files,
 Console, Text Editor, Settings, Software, Calendar, Contacts, Clocks, Calculator,
 Disks, Logs, System Monitor, Fonts, Image Viewer, Document Viewer, Video Player,
-Camera, Document Scanner, Tweaks and Help. Packages use the shared official Arch
+Camera, Document Scanner, Tweaks and Help. The full set also includes Weather,
+Maps, Characters, Connections, Passwords and Keys, Disk Usage Analyzer, Archive
+Manager, Audio Player, Geary mail, LibreOffice, the GNOME Tour, media codecs,
+network file backends and Files' Space-key preview. Remote Desktop settings are
+available without enabling unattended remote access.
+
+Flatpak and a per-user Flathub remote make GNOME Software useful for graphical
+app installation. Software manages Flatpak apps; keep using Omarchy's updater
+for the base system. Existing Flathub configuration is preserved. No extra
+Flatpak apps or shared runtimes are downloaded automatically.
+Packages use the shared official Arch
 Linux ARM cache fallback with repository hashes/signatures retained.
 
 ## Files and recovery
@@ -73,7 +117,8 @@ a transient rendering problem, not a missing-font package; its underlying cause
 has not been isolated. No unverified global GTK renderer override is installed.
 
 Portable checks cover password/session configuration, preservation of other
-desktops, environment cleanup, and literal launcher arguments:
+desktops, environment cleanup, literal launcher arguments, profile backups and
+preservation of later preferences, favorites, power policy and existing shortcuts:
 
 ```bash
 python3 -m unittest discover -s gnome/tests -v

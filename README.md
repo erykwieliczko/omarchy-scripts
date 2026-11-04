@@ -141,8 +141,12 @@ Use standard **GNOME with GDM password login** as your Omarchy desktop:
 curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/install-mac-gnome-ultimate-wip.sh | bash -
 ```
 
-This installs GNOME Shell, Settings, its desktop apps and portals, and GDM, then
-selects **Omarchy (GNOME)** for your account. GNOME uses its standard appearance;
+This installs GNOME Shell, Settings, a full desktop app set including mail and
+LibreOffice, media codecs, Flathub integration and GDM, then selects
+**Omarchy (GNOME)** for your account. Fedora-inspired defaults provide dark
+Adwaita, MacBook touchpad settings, dynamic workspaces, tiling and useful shortcuts.
+Defaults are seeded once; later choices and existing power/lock settings are
+preserved. GNOME uses its standard shell with AppIndicator tray support;
 the session clears inherited Hyprland/Plasma settings and keeps compositor-specific
 Omarchy helpers out of GNOME. Existing desktops stay installed. Reboot when ready,
 or add `--activate` to close the current session and switch immediately. Root can
