@@ -126,6 +126,27 @@ class GNOMEIntegration(unittest.TestCase):
             self.assertNotIn('Hidden', config['Desktop Entry'])
             self.assertEqual(path.with_suffix('.desktop.pre-omarchy-gnome').read_text(), original)
 
+    def test_partial_autostart_mask_gets_required_desktop_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            path = home / '.config/autostart/org.fcitx.Fcitx5.desktop'
+            path.parent.mkdir(parents=True)
+            original = '[Desktop Entry]\nHidden=true\nNotShowIn=GNOME;\n'
+            path.write_text(original)
+            template = home / 'system-fcitx.desktop'
+            template.write_text('[Desktop Entry]\nType=Application\nName=Fcitx 5\nExec=/usr/bin/fcitx5\n')
+            setup = module('setup-user')
+            setup.configure(home, template)
+            setup.configure(home, template)
+            config = configparser.ConfigParser()
+            config.read(path)
+            self.assertEqual(config['Desktop Entry']['Type'], 'Application')
+            self.assertEqual(config['Desktop Entry']['Name'], 'Fcitx 5')
+            self.assertEqual(config['Desktop Entry']['Exec'], '/usr/bin/fcitx5')
+            self.assertEqual(config['Desktop Entry']['Hidden'], 'true')
+            self.assertEqual(config['Desktop Entry']['NotShowIn'], 'GNOME;')
+            self.assertEqual(path.with_suffix('.desktop.pre-omarchy-gnome').read_text(), original)
+
     def test_desktop_profile_preserves_later_choices_power_favorites_and_custom_shortcuts(self):
         class Value:
             def __init__(self, value): self.value = value

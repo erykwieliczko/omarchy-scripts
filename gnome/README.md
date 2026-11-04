@@ -61,6 +61,8 @@ GNOME uses its own IBus input service. Fcitx's XDG autostart is excluded only fr
 GNOME, and inherited Fcitx module variables are cleared from session and D-Bus
 activation environments. This prevents Fcitx's IBus compatibility endpoint from
 blocking GNOME's native input service; Fcitx remains usable in other desktops.
+Partial legacy autostart masks are completed from the system desktop entry:
+without the required fields, GNOME can ignore the mask and start Fcitx anyway.
 
 An explicit current app set is installed instead of the whole `gnome` package
 group: the tested repositories contained obsolete GNOME Books/Boxes builds whose

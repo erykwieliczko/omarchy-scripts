@@ -2,11 +2,12 @@
 """Keep Hyprland helpers out of GNOME without masking other desktops."""
 from datetime import datetime
 import configparser
+import io
 import os
 from pathlib import Path
 
 
-def configure(home):
+def configure(home, autostart_template=Path('/etc/xdg/autostart/org.fcitx.Fcitx5.desktop')):
     generator = home / '.config/systemd/user-environment-generators/90-omarchy-gnome'
     generator.parent.mkdir(parents=True, exist_ok=True)
     generator.unlink(missing_ok=True)
@@ -21,22 +22,28 @@ def configure(home):
     # of the supervised service. Its IBus compatibility interface blocks GNOME's
     # own IBus daemon. Preserve autostart in other desktops.
     target = home / '.config/autostart/org.fcitx.Fcitx5.desktop'
-    source = target if target.exists() else Path('/etc/xdg/autostart/org.fcitx.Fcitx5.desktop')
-    if source.exists():
+    if target.exists() or autostart_template.exists():
         parser = configparser.ConfigParser(interpolation=None, strict=False)
         parser.optionxform = str
-        parser.read(source)
+        # A partial Hidden/NotShowIn override can be rejected by GDesktopAppInfo,
+        # causing gnome-session to fall back to the system's autostart entry.
+        # Fill required fields from that entry, preserving owner overrides.
+        parser.read([autostart_template, target])
         section = parser['Desktop Entry']
         excluded = [name for name in section.get('NotShowIn', '').split(';') if name]
         if 'GNOME' not in excluded:
+            excluded.append('GNOME')
+        section['NotShowIn'] = ';'.join(excluded) + ';'
+        output = io.StringIO()
+        parser.write(output, space_around_delimiters=False)
+        content = output.getvalue()
+        if not target.exists() or target.read_text() != content:
             if target.exists():
                 backup = target.with_suffix('.desktop.pre-omarchy-gnome')
                 if not backup.exists():
                     backup.write_text(target.read_text())
-            section['NotShowIn'] = ';'.join(excluded + ['GNOME']) + ';'
             target.parent.mkdir(parents=True, exist_ok=True)
-            with target.open('w') as stream:
-                parser.write(stream, space_around_delimiters=False)
+            target.write_text(content)
     state = home / '.local/state/omarchy-gnome'
     state.mkdir(parents=True, exist_ok=True)
     (state / 'configured').write_text(datetime.now().isoformat() + '\n')
