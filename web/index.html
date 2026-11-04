@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f5f0">
+  <meta name="description" content="Make Omarchy your own. Pick KDE Plasma, Apple keyboard settings, or Steam with Age of Empires II patches, and copy one install command.">
+  <title>Make yourself at home. — Omarchy Mac setup</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <a class="skip-link" href="#configuration">Skip to configuration</a>
+  <div class="page-shell">
+    <header class="site-header">
+      <a href="./" class="brand" aria-label="Omarchy Mac setup home">
+        <span class="brand-mark" aria-hidden="true">o<span>_</span></span>
+        <span>omarchy<span class="brand-divider">/</span><span class="brand-subtitle">mac setup</span></span>
+      </a>
+      <a class="source-link" href="https://github.com/erykwieliczko/omarchy-scripts">View on GitHub <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div class="eyebrow"><span class="status-dot" aria-hidden="true"></span> APPLE SILICON. LINUX. YOUR WAY.</div>
+        <h1 id="page-title">Make yourself<br>at <span class="home-word">home<svg viewBox="0 0 320 16" preserveAspectRatio="none" aria-hidden="true"><path d="M4 10C90 0 208 1 316 9"/></svg></span>.</h1>
+        <p class="hero-description">A different desktop. Familiar keys. A little Age of Empires.<br class="desktop-break"> Choose what you want. We’ll put it in one command.</p>
+      </section>
+
+      <div class="setup-grid">
+        <section id="configuration" class="configuration" aria-labelledby="choose-title">
+          <div class="section-heading"><h2 id="choose-title">Build your setup</h2><span>Pick any combination</span></div>
+          <fieldset class="choices">
+            <legend class="sr-only">Components to install</legend>
+            <label class="choice">
+              <input type="checkbox" name="component" value="P" checked>
+              <span class="choice-icon plasma-icon" aria-hidden="true"><svg viewBox="0 0 40 40"><rect x="5" y="7" width="30" height="24" rx="3"/><path d="M5 14h30M12 11h.1M16 11h.1M11 20h9m-9 5h15M15 35h10m-5-4v4"/></svg></span>
+              <span class="choice-copy"><span class="choice-title">KDE Plasma <span class="option-key">P</span></span><span class="choice-description">A desktop that feels like yours.</span><span class="choice-detail">Plasma apps, Omarchy theme, and password login.</span></span>
+              <span class="checkbox-mark" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="m5 10 3 3 7-7"/></svg></span>
+            </label>
+            <label class="choice">
+              <input type="checkbox" name="component" value="K" checked>
+              <span class="choice-icon keyboard-icon" aria-hidden="true"><svg viewBox="0 0 40 40"><rect x="3" y="10" width="34" height="22" rx="4"/><path d="M9 16h1m5 0h1m5 0h1m5 0h1M9 22h1m5 0h1m5 0h1m5 0h1M12 27h16"/></svg></span>
+              <span class="choice-copy"><span class="choice-title">Apple keyboard <span class="option-key">K</span></span><span class="choice-description">Muscle memory, restored.</span><span class="choice-detail">Swap Option / Command and Fn / Ctrl. F1–F12 work directly.</span></span>
+              <span class="checkbox-mark" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="m5 10 3 3 7-7"/></svg></span>
+            </label>
+            <label class="choice">
+              <input type="checkbox" name="component" value="S">
+              <span class="choice-icon steam-icon" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M12 11h16c4 0 6 4 7 9l2 9c.5 4-3 5-5 2l-4-5H12l-4 5c-2 3-5.5 2-5-2l2-9c1-5 3-9 7-9Z"/><path d="M10 18v8m-4-4h8M27 18h.1m5 5h.1M17 10l2-3h5"/></svg></span>
+              <span class="choice-copy"><span class="choice-title">Steam + AoE2 patches <span class="option-key">S</span></span><span class="choice-description">Yes, your Mac can play.</span><span class="choice-detail">Steam, FEX, Proton, and our graphics and input fixes.</span></span>
+              <span class="checkbox-mark" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="m5 10 3 3 7-7"/></svg></span>
+            </label>
+          </fieldset>
+          <div class="choice-note"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 9V6a5 5 0 0 1 10 0v3M4 9h12v9H4z"/><path d="M10 12v3"/></svg><p>You’re in control. Only your selected components are installed.</p></div>
+        </section>
+
+        <aside class="command-panel" aria-labelledby="command-title">
+          <div class="panel-topline"><span><span class="status-dot" aria-hidden="true"></span> YOUR SETUP</span><span id="selection-code" class="selection-code">PK</span></div>
+          <h2 id="command-title">One command.<br> Make it yours.</h2>
+          <p class="panel-description">Paste this into your Omarchy terminal.</p>
+          <div class="terminal">
+            <div class="terminal-bar"><span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>bash</span><span id="selection-count">2 selected</span></div>
+            <pre><code id="install-command">curl -fsSL https://erykwieliczko.github.io/omarchy-scripts/install.sh | bash -s -- --options=PK</code></pre>
+          </div>
+          <button class="copy-button" id="copy-command" type="button"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="11" rx="2"/><path d="M12 7V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></svg><span>Copy command</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+          <div class="plan" aria-label="Selected components"><span class="plan-label">THIS WILL INSTALL</span><ul id="selected-components"><li>KDE Plasma</li><li>Apple keyboard settings</li></ul></div>
+          <div class="panel-footer"><button type="button" id="copy-link">Copy setup link <span aria-hidden="true">↗</span></button><a href="./install.sh">Read the script <span aria-hidden="true">↗</span></a></div>
+          <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+        </aside>
+      </div>
+
+      <section class="next-steps" aria-labelledby="next-title">
+        <div class="next-heading"><span class="eyebrow">THE REST IS SIMPLE</span><h2 id="next-title">From here to home.</h2></div>
+        <ol><li><span class="step-number">01</span><div><h3>Open your terminal</h3><p>Boot Omarchy and open a terminal in your desktop account.</p></div></li><li><span class="step-number">02</span><div><h3>Paste. Run. Relax.</h3><p>Run your command and enter your sudo password when asked.</p></div></li><li><span class="step-number">03</span><div><h3>Settle in</h3><p>Reboot if requested. Selected Steam? Sign in and install your games.</p></div></li></ol>
+      </section>
+      <p class="wip-note"><span>WORK IN PROGRESS</span> Community scripts for Omarchy on Apple Silicon. A reboot may be needed for Plasma or Steam; it’s always yours to initiate.</p>
+      <noscript><p class="noscript-note">Enable JavaScript to customize your setup. The command above installs Plasma and keyboard settings. Add S to --options=PKS to include Steam.</p></noscript>
+    </main>
+    <footer class="site-footer"><span>Made for a Mac. Built for your choice.</span><a href="https://github.com/erykwieliczko/omarchy-scripts">erykwieliczko / omarchy-scripts <span aria-hidden="true">↗</span></a></footer>
+  </div>
+</body>
+</html>

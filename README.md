@@ -1,5 +1,32 @@
 # Omarchy scripts
 
+## Choose your setup
+
+Open **[Omarchy Mac setup](https://erykwieliczko.github.io/omarchy-scripts/)**,
+select the components you want, and copy the generated command into your terminal.
+The setup link remembers your selection so you can share it or use it again.
+
+For example, Plasma and keyboard settings, without installing Steam:
+
+```bash
+curl -fsSL https://erykwieliczko.github.io/omarchy-scripts/install.sh | bash -s -- --options=PK
+```
+
+Choose any combination of `P` (KDE Plasma), `K` (Apple keyboard), and `S` (Steam
+with the AoE2 patches). Only selected installers are downloaded and run, in that
+order. Add `--dry-run` to preview the plan without downloads, or `--check` for the
+selected installers' read-only preflight checks. Root invocations can add
+`--user YOUR_DESKTOP_ACCOUNT`. Reboots remain manual.
+
+GitHub Pages publishes the page and `install.sh` together from `gh-pages`. Each
+published dispatcher uses that deployment's exact Git commit for all three
+installer entry points; their existing component pins and checksums are retained.
+The page source is in `web/`, the dispatcher in `setup.sh`, and the local build
+command is `python3 tools/build-site.py --revision "$(git rev-parse HEAD)"`.
+After committing and pushing source changes, run `bash tools/publish-site.sh`
+to publish the committed page and a matching pinned installer. Publication uses
+a temporary checkout and leaves unrelated local changes untouched.
+
 ## Fresh Mac setup for AoE2
 
 Boot your installed Omarchy system, open a terminal as your desktop user, and run:
