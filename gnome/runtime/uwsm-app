@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+case :${XDG_CURRENT_DESKTOP:-}: in
+    *:GNOME:*) ;;
+    *) exec /usr/bin/uwsm-app "$@" ;;
+esac
+case ${1:-} in
+    ping|stop) exit 0 ;;
+    --) shift ;;
+    -*) echo 'GNOME app launcher supports: uwsm-app -- COMMAND [ARGS...]' >&2; exit 2 ;;
+esac
+(( $# )) || { echo 'No application specified.' >&2; exit 2; }
+exec "$@"

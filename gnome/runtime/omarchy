@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+case :${XDG_CURRENT_DESKTOP:-}: in
+    *:GNOME:*) ;;
+    *) exec /usr/bin/omarchy "$@" ;;
+esac
+case ${1:-}:${2:-} in
+    system:lock)
+        exec gdbus call --session --dest org.gnome.ScreenSaver \
+            --object-path /org/gnome/ScreenSaver --method org.gnome.ScreenSaver.Lock ;;
+    system:logout)
+        exec gnome-session-quit --logout --no-prompt ;;
+    launch:terminal)
+        shift 2
+        exec kgx "$@" ;;
+esac
+exec /usr/bin/omarchy "$@"

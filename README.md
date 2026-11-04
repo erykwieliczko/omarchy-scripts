@@ -12,20 +12,27 @@ For example, Plasma and keyboard settings, without installing Steam:
 curl -fsSL https://erykwieliczko.github.io/omarchy-scripts/install.sh | bash -s -- --options=PK
 ```
 
-Choose any combination of `P` (KDE Plasma), `K` (Apple keyboard), and `S` (Steam
-with the AoE2 patches). Only selected installers are downloaded and run, in that
-order. Add `--dry-run` to preview the plan without downloads, or `--check` for the
+Choose `P` (KDE Plasma) or `G` (GNOME), plus any of `K` (Apple keyboard), `S`
+(Steam with the AoE2 patches), and `H` (SSH password login). You can also select
+only extras and keep your current desktop. Only selected installers are downloaded
+and run, in `PGKSH` order; `P` and `G` cannot be selected together because each
+sets the default desktop and login manager. Add `--dry-run` to preview the plan
+without downloads, or `--check` for the
 selected installers' read-only preflight checks. Root invocations can add
 `--user YOUR_DESKTOP_ACCOUNT`. Reboots remain manual.
 
 GitHub Pages publishes the page and `install.sh` together from `gh-pages`. Each
-published dispatcher uses that deployment's exact Git commit for all three
+published dispatcher uses that deployment's exact Git commit for all selected
 installer entry points; their existing component pins and checksums are retained.
 The page source is in `web/`, the dispatcher in `setup.sh`, and the local build
 command is `python3 tools/build-site.py --revision "$(git rev-parse HEAD)"`.
 After committing and pushing source changes, run `bash tools/publish-site.sh`
 to publish the committed page and a matching pinned installer. Publication uses
 a temporary checkout and leaves unrelated local changes untouched.
+
+The dark setup page was redesigned with Claude Code. It includes keyboard
+navigation, mobile layouts, separate command/share-link copy buttons, and
+validation for incompatible desktop selections.
 
 ## Fresh Mac setup for AoE2
 
@@ -49,7 +56,7 @@ First use downloads Steam client components and runs prerequisite installers;
 watch Steam's setup progress before retrying.
 
 The keyboard script applies the PC modifier/F-key layout described below.
-The KDE and Steam installers use an official Arch Linux ARM package cache to
+The desktop and Steam installers use an official Arch Linux ARM package cache to
 cover missing files in Omarchy's ARM mirror. Repository metadata, package order
 and signature checks stay under Omarchy's configuration.
 
@@ -125,6 +132,45 @@ curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/
 ```
 
 See [KDE integration, backups and validation](kde/README.md).
+
+## Install Mac GNOME Ultimate WIP
+
+Use standard **GNOME with GDM password login** as your Omarchy desktop:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/install-mac-gnome-ultimate-wip.sh | bash -
+```
+
+This installs GNOME Shell, Settings, its desktop apps and portals, and GDM, then
+selects **Omarchy (GNOME)** for your account. GNOME uses its standard appearance;
+the session clears inherited Hyprland/Plasma settings and keeps compositor-specific
+Omarchy helpers out of GNOME. Existing desktops stay installed. Reboot when ready,
+or add `--activate` to close the current session and switch immediately. Root can
+use `--user ACCOUNT`; `--check` performs read-only platform/account checks.
+
+See [GNOME integration, backups and validation](gnome/README.md).
+
+## Enable SSH password login
+
+Enable `sshd` and connect with your desktop account's existing password:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/setup-mac-ssh.sh | bash -
+```
+
+The script enables OpenSSH at boot, allows password login for non-root accounts,
+and keeps root password login disabled. Existing SSH keys continue to work; no
+account passwords or authorized keys are changed. It validates the effective
+OpenSSH configuration before applying it, reloads an active server without
+disconnecting existing sessions, and backs up `sshd_config` under
+`/var/lib/omarchy-ssh/backups/`. A failure after replacement restores the previous
+configuration. Existing account-specific `Match` rules that prevent password
+login are reported rather than silently bypassed. Firewall policy is unchanged.
+
+Root can specify `--user ACCOUNT`. `--check` prints the effective authentication
+settings without changing configuration; it requires sudo to read SSH host keys.
+Password login as account `e` was tested on the M3 with public-key authentication
+disabled in the client; root key-based access remained available.
 
 ## Set up Mac keyboard
 

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Run as root after installation has completed and the caller has returned.
+set -euo pipefail
+account=${1:?Desktop account required}
+systemctl stop sddm.service plasmalogin.service greetd.service 2>/dev/null || :
+loginctl terminate-user "$account" || :
+systemctl reset-failed gdm.service
+if ! systemctl start gdm.service; then
+    previous=$(cat /var/lib/omarchy-gnome/previous-manager 2>/dev/null || :)
+    case $previous in
+        sddm.service|plasmalogin.service|greetd.service)
+            systemctl enable --force "$previous"
+            systemctl start "$previous" ;;
+    esac
+    exit 1
+fi

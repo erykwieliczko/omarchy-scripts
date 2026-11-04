@@ -8,7 +8,7 @@ main() {
     while (( $# )); do
         case $1 in
             --options=*|-options=*) options=${1#*=}; options_seen=1; shift ;;
-            --options|-options) options=${2:?--options needs P, K, S or a combination}; options_seen=1; shift 2 ;;
+            --options|-options) options=${2:?--options needs P, G, K, S, H or a combination}; options_seen=1; shift 2 ;;
             --user) account=${2:?--user needs a desktop account}; shift 2 ;;
             --check) check_only=1; shift ;;
             --dry-run) dry_run=1; shift ;;
@@ -16,9 +16,11 @@ main() {
                 printf '%s\n' 'Omarchy Mac setup' \
                     'Usage: bash -s -- --options=PK [--user ACCOUNT] [--check] [--dry-run]' \
                     '  P  KDE Plasma and password login' \
+                    '  G  GNOME and GDM password login' \
                     '  K  PC-style Apple keyboard settings' \
                     '  S  Steam with the AoE2-tested FEX, Proton and graphics patches' \
-                    'Choose any combination. Only selected installers run.' \
+                    '  H  SSH password login for desktop accounts (root keeps key-based login)' \
+                    'Choose one desktop (P or G), plus any extras. Only selected installers run.' \
                     '--check runs selected installers in read-only check mode.' \
                     '--dry-run prints the plan without downloads or system changes.' \
                     'Run from your desktop account, or use --user ACCOUNT as root.'
@@ -27,12 +29,16 @@ main() {
         esac
     done
     if (( ! options_seen )) || [[ -z $options ]]; then
-        echo 'Choose at least one option: P (Plasma), K (keyboard), S (Steam).' >&2
+        echo 'Choose at least one option: P (Plasma), G (GNOME), K (keyboard), S (Steam), H (SSH).' >&2
         return 2
     fi
     options=${options^^}
-    if [[ $options == *[!PKS]* ]]; then
-        echo 'Unknown option. Use P, K, S or a combination such as PK.' >&2
+    if [[ $options == *[!PGKSH]* ]]; then
+        echo 'Unknown option. Use P, G, K, S, H or a combination such as GKH.' >&2
+        return 2
+    fi
+    if [[ $options == *P* && $options == *G* ]]; then
+        echo 'Choose one default desktop: P (Plasma) or G (GNOME).' >&2
         return 2
     fi
     local revision=main
@@ -42,6 +48,10 @@ main() {
         names+=(install-mac-kde-ultimate-wip.sh)
         labels+=('KDE Plasma and password login')
     fi
+    if [[ $options == *G* ]]; then
+        names+=(install-mac-gnome-ultimate-wip.sh)
+        labels+=('GNOME and GDM password login')
+    fi
     if [[ $options == *K* ]]; then
         names+=(setup-mac-keyboard.sh)
         labels+=('Apple keyboard settings')
@@ -49,6 +59,10 @@ main() {
     if [[ $options == *S* ]]; then
         names+=(install-mac-steam-ultimate-wip.sh)
         labels+=('Steam with AoE2 patches')
+    fi
+    if [[ $options == *H* ]]; then
+        names+=(setup-mac-ssh.sh)
+        labels+=('SSH password login for desktop accounts')
     fi
     printf 'Omarchy Mac setup — %s selected\n' "${#names[@]}"
     local index
@@ -93,7 +107,7 @@ main() {
         printf '\nSelected configuration checks passed.\n'
     else
         printf '\nYour selected configuration is installed.\n'
-        if [[ $options == *[PS]* ]]; then
+        if [[ $options == *[PGS]* ]]; then
             echo 'Reboot when ready to activate the desktop or kernel boot settings.'
         fi
     fi

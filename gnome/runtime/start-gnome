@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# shellcheck source=/dev/null
+source /usr/local/lib/omarchy-gnome/session-env.sh
+# The shared user manager can retain the previous compositor's variables.
+systemctl --user unset-environment HYPRLAND_INSTANCE_SIGNATURE HYPRLAND_CMD \
+    HYPRCURSOR_THEME HYPRCURSOR_SIZE GDK_SCALE GDK_DPI_SCALE GDK_BACKEND \
+    QT_SCALE_FACTOR QT_SCREEN_SCALE_FACTORS QT_QPA_PLATFORM QT_STYLE_OVERRIDE \
+    QT_QPA_PLATFORMTHEME GTK_THEME GTK_IM_MODULE QT_IM_MODULE SDL_IM_MODULE XMODIFIERS INPUT_METHOD \
+    KDE_FULL_SESSION KDE_SESSION_VERSION KDE_SESSION_UID \
+    DISPLAY WAYLAND_DISPLAY || :
+unset DISPLAY WAYLAND_DISPLAY
+dbus-update-activation-environment --systemd XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP \
+    XDG_SESSION_TYPE OMARCHY_PATH PATH
+exec /usr/bin/gnome-session --session=gnome

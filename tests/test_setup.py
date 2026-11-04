@@ -12,8 +12,10 @@ import unittest
 ROOT = Path(__file__).parents[1]
 SCRIPTS = {
     'P': 'install-mac-kde-ultimate-wip.sh',
+    'G': 'install-mac-gnome-ultimate-wip.sh',
     'K': 'setup-mac-keyboard.sh',
     'S': 'install-mac-steam-ultimate-wip.sh',
+    'H': 'setup-mac-ssh.sh',
 }
 
 
@@ -63,8 +65,10 @@ CHILD
         self.executions.unlink(missing_ok=True)
 
     def test_every_combination_fetches_and_runs_only_its_selected_components(self):
-        for size in range(1, 4):
-            for combination in itertools.combinations('PKS', size):
+        for size in range(1, 6):
+            for combination in itertools.combinations('PGKSH', size):
+                if 'P' in combination and 'G' in combination:
+                    continue
                 options = ''.join(combination)
                 with self.subTest(options=options):
                     self.reset_records()
@@ -78,10 +82,10 @@ CHILD
     def test_normalizes_lowercase_duplicates_and_input_order(self):
         result = self.launch('-options=skppk')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual([item['name'] for item in self.read_lines(self.executions)], list(SCRIPTS.values()))
+        self.assertEqual([item['name'] for item in self.read_lines(self.executions)], [SCRIPTS[c] for c in 'PKS'])
 
     def test_invalid_or_empty_selection_never_downloads_or_executes(self):
-        for arguments in ((), ('--options=',), ('--options=PX',), ('--options=$(touch /bad)',), ('--unknown',)):
+        for arguments in ((), ('--options=',), ('--options=PX',), ('--options=PG',), ('--options=$(touch /bad)',), ('--unknown',)):
             with self.subTest(arguments=arguments):
                 result = self.launch(*arguments)
                 self.assertNotEqual(result.returncode, 0)

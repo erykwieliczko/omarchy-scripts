@@ -1,0 +1,6 @@
+#!/bin/sh
+# environment.d is also re-read on user-manager reloads after session startup.
+case :${XDG_CURRENT_DESKTOP:-}: in
+    *:GNOME:*)
+        printf '%s\n' 'GTK_IM_MODULE=' 'QT_IM_MODULE=' 'SDL_IM_MODULE=' 'XMODIFIERS=' 'INPUT_METHOD=' ;;
+esac

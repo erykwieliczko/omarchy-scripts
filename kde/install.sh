@@ -145,7 +145,9 @@ else
     done
 fi
 systemctl daemon-reload
-systemctl disable sddm.service 2>/dev/null || :
+for manager in sddm.service gdm.service greetd.service; do
+    systemctl disable "$manager" 2>/dev/null || :
+done
 systemctl enable --force plasmalogin.service
 systemctl set-default graphical.target
 echo 'Installed KDE Plasma with Plasma Login Manager and password login.'
