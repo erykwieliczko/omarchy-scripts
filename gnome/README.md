@@ -77,6 +77,26 @@ Flatpak and a per-user Flathub remote make GNOME Software useful for graphical
 app installation. Software manages Flatpak apps; keep using Omarchy's updater
 for the base system. Existing Flathub configuration is preserved. No extra
 Flatpak apps or shared runtimes are downloaded automatically.
+
+When the host uses `mesa-aurora`, the installer also downloads the published
+[Aurora Flatpak graphics package](https://github.com/aurora-silicon/alarm-aurora/tree/main/packages/aurora-flatpak-gl).
+The archive is pinned by SHA-256. Only its GL extension repository and license
+are extracted into `/usr/local/share/omarchy-gnome/flatpak-gl`; host Mesa, Vulkan
+and kernel packages are retained. `org.freedesktop.Platform.GL.aurora` is installed
+for Freedesktop 25.08 and 26.08 through a dedicated local per-user remote. Driver
+selection follows Aurora's published GL extension layout; existing explicit
+loader overrides are preserved, and prior overrides are backed up under
+`~/.local/state/omarchy-gnome/`. The source URL, hash and upstream attribution are
+recorded in `flatpak-gl/source.json`, and upstream licensing stays with the payload.
+Other graphics stacks use their distribution's Flatpak drivers.
+
+This is required on the tested M3: Flathub's default Mesa produced pink/blank
+windows and `DRM_IOCTL_ASAHI_SUBMIT` errors against Aurora's kernel, in both GTK's
+Vulkan and OpenGL renderers. Installing a compatible graphics extension fixes
+the driver mismatch without a software-rendering override or sandbox filesystem
+exceptions. Sign out and back in after an existing GNOME session is upgraded so
+app launches inherit the new Flatpak driver selection.
+
 Packages use the shared official Arch
 Linux ARM cache fallback with repository hashes/signatures retained.
 
@@ -108,6 +128,16 @@ kernel `7.2.11-14-1-ARCH`, and GNOME 51. The owner signed in through GDM's norma
 password prompt; the selected session started GNOME Wayland. GNOME Settings and
 Console were launched and inspected on the real display. No kernel or Steam
 changes were needed for this desktop installation.
+
+The expanded profile was applied and the public installer rerun without resetting
+later preferences. The panel retains 3024×1964 at 120 Hz with 200% scaling, and
+the owner's no-idle/no-lock choices remain saved. Console opened with Ctrl+Alt+T;
+a real GTK input test accepted both ordinary text and an accented character
+after restoring native IBus. The user manager has no failed units. A real Flathub
+installation completed; Flatseal rendered correctly after the Aurora GL extension
+repair. GTK's diagnostics report **Apple M3 Pro (G15S B1), Vulkan device 0** as
+the selected GPU. Neither a global GTK renderer override nor software rendering
+is used for that test.
 
 The initial global-shortcut permission dialog showed missing individual glyphs.
 The same process rendered the full text correctly after a redraw. Both a default

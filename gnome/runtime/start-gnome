@@ -13,4 +13,7 @@ unset DISPLAY WAYLAND_DISPLAY
 dbus-update-activation-environment --systemd XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP \
     XDG_SESSION_TYPE OMARCHY_PATH PATH GTK_IM_MODULE QT_IM_MODULE SDL_IM_MODULE \
     XMODIFIERS INPUT_METHOD QT_IM_MODULES
+if [[ -n ${FLATPAK_GL_DRIVERS:-} ]]; then
+    dbus-update-activation-environment --systemd FLATPAK_GL_DRIVERS
+fi
 exec /usr/bin/gnome-session --session=gnome

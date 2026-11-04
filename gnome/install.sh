@@ -64,7 +64,7 @@ mac_install_packages gdm gnome-shell gnome-session gnome-settings-daemon \
     xdg-desktop-portal-gnome xdg-user-dirs-gtk gvfs gvfs-mtp gvfs-smb \
     python python-gobject xorg-xwayland
 install -d -m755 /usr/local/lib/omarchy-gnome/bin
-for file in start-gnome session-env.sh setup-user.py desktop-defaults.py configure.py switch-desktop environment-generator; do
+for file in start-gnome session-env.sh setup-user.py desktop-defaults.py setup-flatpak-gl.py configure.py switch-desktop environment-generator; do
     install -m755 "$project/runtime/$file" "/usr/local/lib/omarchy-gnome/$file"
 done
 for file in omarchy uwsm-app; do
@@ -104,6 +104,7 @@ runuser -u "$account" -- env "XDG_RUNTIME_DIR=/run/user/$uid" XDG_CURRENT_DESKTO
 runuser -u "$account" -- env "XDG_RUNTIME_DIR=/run/user/$uid" \
     "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" \
     flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+python3 /usr/local/lib/omarchy-gnome/setup-flatpak-gl.py "$account"
 if [[ -S /run/user/$uid/bus ]]; then
     runuser -u "$account" -- env "XDG_RUNTIME_DIR=/run/user/$uid" systemctl --user daemon-reload
 fi

@@ -11,4 +11,7 @@ unset QT_QPA_PLATFORM QT_STYLE_OVERRIDE QT_QPA_PLATFORMTHEME GTK_THEME
 # user manager or D-Bus activation environment is imported again.
 export GTK_IM_MODULE='' QT_IM_MODULE='' SDL_IM_MODULE='' INPUT_METHOD=''
 export XMODIFIERS=@im=ibus QT_IM_MODULES='wayland;ibus'
+if [ -f /usr/local/share/omarchy-gnome/flatpak-gl/enabled ]; then
+    export FLATPAK_GL_DRIVERS="${FLATPAK_GL_DRIVERS:-aurora:default:host}"
+fi
 unset KDE_FULL_SESSION KDE_SESSION_VERSION KDE_SESSION_UID

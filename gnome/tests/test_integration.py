@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -22,6 +23,42 @@ def module(name):
 
 
 class GNOMEIntegration(unittest.TestCase):
+    def test_flatpak_driver_setup_leaves_non_aurora_graphics_untouched(self):
+        setup = module('setup-flatpak-gl')
+        with patch.object(setup.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)) as run:
+            with patch.object(setup.pwd, 'getpwnam') as account:
+                setup.install('player')
+        self.assertEqual(run.call_count, 1)
+        account.assert_not_called()
+
+    def test_flatpak_loader_defaults_keep_existing_driver_choices(self):
+        setup = module('setup-flatpak-gl')
+        choices = setup.missing_loader_defaults(
+            '[Context]\nshared=network;\n[Environment]\n'
+            'VK_DRIVER_FILES=/owner/driver.json\nOTHER=literal%value\n')
+        self.assertNotIn('VK_DRIVER_FILES', choices)
+        self.assertIn('__EGL_VENDOR_LIBRARY_FILENAMES', choices)
+        self.assertNotIn('OTHER', choices)
+
+    def test_corrupt_graphics_archive_is_rejected_before_extracting_or_registering(self):
+        setup = module('setup-flatpak-gl')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            calls = []
+            def run(command, **kwargs):
+                calls.append(command)
+                if command[0] == 'curl':
+                    Path(command[command.index('-o') + 1]).write_bytes(b'corrupt download')
+                return subprocess.CompletedProcess(command, 0)
+            with patch.object(setup, 'Path', side_effect=lambda value: root / value.lstrip('/')):
+                with patch.object(setup.subprocess, 'run', side_effect=run):
+                    with patch.object(setup.pwd, 'getpwnam', return_value=SimpleNamespace(pw_uid=1000)):
+                        with self.assertRaisesRegex(RuntimeError, 'checksum failed'):
+                            setup.install('player')
+            self.assertEqual([call[0] for call in calls], ['pacman', 'curl'])
+            self.assertFalse((root / 'usr/local/share/omarchy-gnome/flatpak-gl').exists())
+            self.assertFalse(list(root.rglob('*.partial')))
+
     def test_password_login_preserves_other_gdm_settings(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
