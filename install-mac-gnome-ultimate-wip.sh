@@ -16,8 +16,8 @@ main() {
         echo 'Install Mac GNOME Ultimate WIP requires Omarchy/Arch Linux.' >&2
         return 1
     fi
-    revision=202825e17e0a944333b83795ef4210989b93e20d
-    archive_sha256=d10a091e83967aefc1b0428c5292ff15410c926ebd489de1c907835f35314120
+    revision=348c4674a17192c2d5129e3c078e5b63d2d0f734
+    archive_sha256=3459a7fe5c26158c9225605db5bd4a0794394a1a1c5751e71d4bebe30f5abe52
     bootstrap_dir=$(mktemp -d)
     trap 'rm -rf -- "$bootstrap_dir"' EXIT
     echo 'Downloading Install Mac GNOME Ultimate WIP (pinned installer)...'
