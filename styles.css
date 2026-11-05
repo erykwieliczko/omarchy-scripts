@@ -86,7 +86,7 @@ code, kbd, pre { font-family: var(--mono); }
   cursor: pointer;
   transition: background-color 0.12s;
 }
-.choice + .choice { border-top: 1px solid var(--border); }
+.choices > * + * { border-top: 1px solid var(--border); }
 .choice:hover { background: var(--surface-2); }
 .choice:has(input:checked) { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 
@@ -113,6 +113,10 @@ code, kbd, pre { font-family: var(--mono); }
 }
 .choice:has(input:checked) .choice-key { color: var(--accent); border-color: rgba(122, 162, 247, 0.5); }
 .choice-desc { display: block; margin-top: 2px; font-size: 13.5px; line-height: 1.45; color: var(--text-2); }
+
+.keyboard-settings { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px 13px 46px; font-size: 13.5px; color: var(--text-2); }
+.keyboard-settings[hidden] { display: none; }
+.keyboard-settings select { min-height: 34px; max-width: 100%; padding: 4px 10px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-2); color: var(--text); font: inherit; }
 
 /* Command panel */
 

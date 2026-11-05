@@ -3,13 +3,15 @@
 
 main() {
     set -euo pipefail
-    local options='' account='' check_only=0 dry_run=0
-    local options_seen=0
+    local options='' account='' check_only=0 dry_run=0 right_option=''
+    local options_seen=0 right_option_seen=0
     while (( $# )); do
         case $1 in
             --options=*|-options=*) options=${1#*=}; options_seen=1; shift ;;
             --options|-options) options=${2:?--options needs P, G, K, S, H or a combination}; options_seen=1; shift 2 ;;
             --user) account=${2:?--user needs a desktop account}; shift 2 ;;
+            --right-option=*) right_option=${1#*=}; right_option_seen=1; shift ;;
+            --right-option) right_option=${2:?--right-option needs super or ctrl}; right_option_seen=1; shift 2 ;;
             --check) check_only=1; shift ;;
             --dry-run) dry_run=1; shift ;;
             --help|-h)
@@ -21,6 +23,7 @@ main() {
                     '  S  Steam with the AoE2-tested FEX, Proton and graphics patches' \
                     '  H  SSH password login for desktop accounts (root keeps key-based login)' \
                     'Choose one desktop (P or G), plus any extras. Only selected installers run.' \
+                    '--right-option=ctrl maps physical Right Option to Ctrl (requires K; default: Super).' \
                     '--check runs selected installers in read-only check mode.' \
                     '--dry-run prints the plan without downloads or system changes.' \
                     'Run from your desktop account, or use --user ACCOUNT as root.'
@@ -41,7 +44,18 @@ main() {
         echo 'Choose one default desktop: P (Plasma) or G (GNOME).' >&2
         return 2
     fi
-    local revision=135658c9257763406df3ac496580c39d94e1a490
+    if (( right_option_seen )); then
+        right_option=${right_option,,}
+        if [[ $right_option != super && $right_option != ctrl ]]; then
+            echo '--right-option must be super or ctrl.' >&2
+            return 2
+        fi
+        if [[ $options != *K* ]]; then
+            echo '--right-option requires the Apple keyboard component (K).' >&2
+            return 2
+        fi
+    fi
+    local revision=948e9af848ee440824b89e24f41e30d0efb55754
     local base=https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/$revision
     local -a names=() labels=() arguments=()
     if [[ $options == *P* ]]; then
@@ -54,7 +68,11 @@ main() {
     fi
     if [[ $options == *K* ]]; then
         names+=(setup-mac-keyboard.sh)
-        labels+=('Apple keyboard settings')
+        if [[ $right_option == ctrl ]]; then
+            labels+=('Apple keyboard settings (Right Option = Ctrl)')
+        else
+            labels+=('Apple keyboard settings')
+        fi
     fi
     if [[ $options == *S* ]]; then
         names+=(install-mac-steam-ultimate-wip.sh)
@@ -90,6 +108,9 @@ main() {
         arguments=()
         if [[ ${names[index]} != setup-mac-keyboard.sh && -n $account ]]; then
             arguments+=(--user "$account")
+        fi
+        if [[ ${names[index]} == setup-mac-keyboard.sh && -n $right_option ]]; then
+            arguments+=(--right-option="$right_option")
         fi
         if (( check_only )); then arguments+=(--check); fi
         printf '\n[%s/%s] %s\n' "$((index + 1))" "${#names[@]}" "${labels[index]}"
