@@ -41,7 +41,7 @@ main() {
         echo 'Choose one default desktop: P (Plasma) or G (GNOME).' >&2
         return 2
     fi
-    local revision=94ec288eb1bac1c20dcba00120060ac6637bcb76
+    local revision=5edf198ccc61e3a7dd490e77bca69376e199e980
     local base=https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/$revision
     local -a names=() labels=() arguments=()
     if [[ $options == *P* ]]; then
