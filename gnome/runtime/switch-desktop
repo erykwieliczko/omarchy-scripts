@@ -2,7 +2,10 @@
 # Run as root after installation has completed and the caller has returned.
 set -euo pipefail
 account=${1:?Desktop account required}
-systemctl stop sddm.service plasmalogin.service greetd.service 2>/dev/null || :
+# Missing managers must not prevent installed managers from being stopped.
+for manager in sddm.service plasmalogin.service greetd.service; do
+    systemctl stop "$manager" 2>/dev/null || :
+done
 loginctl terminate-user "$account" || :
 systemctl reset-failed gdm.service
 if ! systemctl start gdm.service; then

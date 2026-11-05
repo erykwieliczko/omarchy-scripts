@@ -12,7 +12,11 @@ if pgrep -u "$uid" -f '^([^ ]*/)?muvm([[:space:]]|$)' >/dev/null; then
         sleep 1
     done
 fi
-systemctl stop sddm.service plasmalogin.service gdm.service greetd.service 2>/dev/null || :
+# A missing unit makes systemctl reject an entire multi-unit transaction.
+# Stop independently so an uninstalled display manager cannot keep GDM alive.
+for manager in sddm.service plasmalogin.service gdm.service greetd.service; do
+    systemctl stop "$manager" 2>/dev/null || :
+done
 loginctl terminate-user "$account" || :
 systemctl reset-failed plasmalogin.service
 systemctl start plasmalogin.service

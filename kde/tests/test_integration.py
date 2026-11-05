@@ -47,6 +47,37 @@ class KDEIntegration(unittest.TestCase):
                                 env=environment, capture_output=True, text=True, check=True)
         self.assertEqual(result.stdout, 'hello world\nliteral$\n--flag\n')
 
+    def test_switch_stops_installed_managers_when_another_is_missing(self):
+        for runtime in (RUNTIME, RUNTIME.parents[1] / 'gnome/runtime'):
+            with self.subTest(desktop=runtime.parent.name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                scripts = {
+                    'id': 'echo 1000\n',
+                    'pgrep': 'exit 1\n',
+                    'loginctl': 'exit 0\n',
+                    'systemctl': '''if [ "$1" = stop ]; then
+    shift
+    for unit in "$@"; do
+        [ "$unit" != sddm.service ] || exit 5
+    done
+    printf '%s\\n' "$@" >> "$SWITCH_STOPS"
+fi
+''',
+                }
+                for name, body in scripts.items():
+                    path = root / name
+                    path.write_text('#!/bin/sh\n' + body)
+                    path.chmod(0o755)
+                record = root / 'stopped'
+                subprocess.run(['bash', str(runtime / 'switch-desktop'), 'player'],
+                               env=dict(os.environ, PATH=str(root) + ':' + os.environ['PATH'],
+                                        SWITCH_STOPS=str(record)), check=True)
+                stopped = record.read_text().splitlines()
+                self.assertIn('plasmalogin.service', stopped)
+                self.assertIn('greetd.service', stopped)
+                if runtime == RUNTIME:
+                    self.assertIn('gdm.service', stopped)
+
     def test_retiring_focus_workaround_preserves_other_window_rules(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'kwinrulesrc'

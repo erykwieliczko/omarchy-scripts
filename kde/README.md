@@ -25,6 +25,8 @@ At login, **Omarchy (KDE Plasma)** is preselected. The native **Plasma (Wayland)
 ## Integration fixes
 
 - Keeps Omarchy's Mac display-readiness and first-boot checks on the new login service.
+- Stops other login managers individually when switching desktops, so a missing
+  SDDM or greetd unit cannot leave GDM running alongside Plasma Login Manager.
 - Clears stale Hyprland/UWSM environment variables and forced GTK/Qt scaling in the Plasma session. KWin manages each display's scale.
 - Restricts the Omarchy wallpaper daemon, sleep locker, Bluetooth pairing agent and other Hyprland shell helpers to Hyprland sessions. Plasma supplies the corresponding desktop functions.
 - Lets KWin's Fcitx Wayland launcher pass the native input-method socket to Omarchy's supervised Fcitx service. Preserves Omarchy's per-user D-Bus activation configuration and XCompose support.

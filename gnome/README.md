@@ -18,7 +18,8 @@ account without installing anything.
 The installer selects the GNOME session through AccountsService, disables GDM
 automatic/timed login, and makes GDM the default display manager. KDE, SDDM and
 Hyprland remain installed when already present. The KDE installer can select
-Plasma Login Manager again.
+Plasma Login Manager again. Immediate switches stop other managers individually;
+an uninstalled manager cannot prevent the active one from being stopped.
 
 The session runs stock GNOME Shell with its standard appearance and GNOME's
 scaling, settings and portals. It removes stale Hyprland/Plasma environment
