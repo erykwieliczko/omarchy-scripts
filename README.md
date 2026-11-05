@@ -144,7 +144,8 @@ curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/
 This installs GNOME Shell, Settings, a full desktop app set including mail and
 LibreOffice, media codecs, Flathub integration and GDM, then selects
 **Omarchy (GNOME)** for your account. Fedora-inspired defaults provide dark
-Adwaita, MacBook touchpad settings, dynamic workspaces, tiling and useful shortcuts.
+Adwaita, an Omarchy wallpaper, MacBook touchpad settings, dynamic workspaces,
+tiling and useful shortcuts. An existing GNOME wallpaper choice is preserved.
 Defaults are seeded once; later choices and existing power/lock settings are
 preserved. GNOME uses its standard shell with AppIndicator tray support;
 the session clears inherited Hyprland/Plasma settings and keeps compositor-specific

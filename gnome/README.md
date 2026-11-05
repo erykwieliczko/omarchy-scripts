@@ -51,6 +51,14 @@ Useful shortcuts include:
 | Super+Left / Right | Tile a window |
 
 These preferences are applied once. Later changes survive installer reruns.
+GNOME also starts with the currently selected Omarchy wallpaper, or a bundled
+Tokyo Night still image if none is selected. Both light and dark modes use it.
+The installer keeps a stable copy in `~/.local/share/backgrounds/omarchy-gnome/`
+so switching Omarchy themes does not remove GNOME's background. This also upgrades
+earlier installations still using GNOME's default; an explicit wallpaper choice
+in GNOME Settings is preserved. It applies once, with a separate
+`wallpaper-default-v1` marker and `wallpaper-before-*.json` backup under the same
+state directory. Animated Omarchy backgrounds are skipped in favor of a still image.
 Prior values are backed up in `~/.local/state/omarchy-gnome/desktop-before-*.json`;
 restore one as your desktop user with
 `python3 /usr/local/lib/omarchy-gnome/desktop-defaults.py --restore BACKUP.json`.

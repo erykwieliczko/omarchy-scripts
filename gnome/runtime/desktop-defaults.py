@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import shutil
 
 
 def profile(browser):
@@ -46,6 +47,63 @@ def restore(values, settings_for, parse_variant):
                 settings.reset(key)
             elif not settings.set_value(key, parse_variant(value)):
                 raise RuntimeError(f'Could not restore {schema} {key}')
+
+
+def omarchy_wallpaper(home, themes=Path('/usr/share/omarchy/themes')):
+    """Prefer the selected Omarchy background, then a bundled still image."""
+    extensions = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.svg', '.jxl', '.avif'}
+    folders = []
+    for current in (home / '.local/state/omarchy/current', home / '.config/omarchy/current'):
+        background = current / 'background'
+        if background.is_file() and background.resolve().suffix.lower() in extensions:
+            return background.resolve()
+        folders.append(current / 'theme/backgrounds')
+    folders.append(themes / 'tokyo-night/backgrounds')
+    for folder in folders:
+        for background in sorted(folder.glob('*')):
+            if background.is_file() and background.suffix.lower() in extensions:
+                return background.resolve()
+    return None
+
+
+def apply_wallpaper_once(state, settings_for, make_variant, home,
+                         themes=Path('/usr/share/omarchy/themes')):
+    # A separate marker upgrades earlier GNOME installs without reapplying the
+    # whole desktop profile or replacing a wallpaper chosen in GNOME Settings.
+    marker = state / 'wallpaper-default-v1'
+    if marker.exists():
+        return
+    schema = 'org.gnome.desktop.background'
+    settings = settings_for(schema)
+    if any(settings.get_user_value(key) is not None
+           for key in ('picture-uri', 'picture-uri-dark')):
+        print('Keeping your existing GNOME wallpaper preference.')
+        return
+    source = omarchy_wallpaper(home, themes)
+    if source is None:
+        print('No Omarchy still wallpaper found; keeping the GNOME background.')
+        return
+    # Omarchy replaces current/theme when switching themes. Keep a copy in a
+    # stable location so the GNOME background remains available afterwards.
+    target = home / '.local/share/backgrounds/omarchy-gnome' / ('background' + source.suffix.lower())
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+    desired = {'picture-uri': target.as_uri(), 'picture-uri-dark': target.as_uri(),
+               'picture-options': 'zoom'}
+    before = {}
+    for key in desired:
+        value = settings.get_user_value(key)
+        before[key] = None if value is None else value.print_(True)
+    state.mkdir(parents=True, exist_ok=True)
+    backup = state / ('wallpaper-before-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ') + '.json')
+    backup.write_text(json.dumps({schema: before}, indent=2) + '\n')
+    for key, value in desired.items():
+        kind = settings.get_value(key).get_type_string()
+        if not settings.set_value(key, make_variant(kind, value)):
+            raise RuntimeError(f'Could not set {schema} {key}; prior values: {backup}')
+    marker.write_text(json.dumps({'source': str(source), 'wallpaper': str(target),
+                                  'backup': str(backup)}, indent=2) + '\n')
+    print(f'GNOME wallpaper imported from Omarchy: {source.name}')
 
 
 def apply_once(state, settings_for, make_variant, browser):
@@ -112,8 +170,10 @@ def main():
                 lambda value: GLib.Variant.parse(None, value, None, None))
     else:
         browser = Gio.AppInfo.get_default_for_uri_scheme('https')
-        apply_once(Path.home() / '.local/state/omarchy-gnome', settings_for,
+        state = Path.home() / '.local/state/omarchy-gnome'
+        apply_once(state, settings_for,
                    GLib.Variant, browser.get_id() if browser else 'chromium.desktop')
+        apply_wallpaper_once(state, settings_for, GLib.Variant, Path.home())
     Gio.Settings.sync()
 
 
