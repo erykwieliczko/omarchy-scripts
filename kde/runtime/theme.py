@@ -2,11 +2,31 @@
 """Import the current Omarchy palette and wallpaper into native KDE settings."""
 import argparse
 import configparser
+import json
 import os
 from pathlib import Path
 import re
 import subprocess
+import time
 import tomllib
+
+
+def wait_for_desktop(timeout=15):
+    # Plasma owns its D-Bus name before it creates the initial desktop layout.
+    # Applying a wallpaper to an empty desktops() list reports success but has
+    # no effect on a fresh profile. Wait for the layout, not a fixed delay.
+    deadline = time.monotonic() + timeout
+    while True:
+        result = subprocess.run(
+            ['busctl', '--user', '--timeout=2', 'call', 'org.kde.plasmashell',
+             '/PlasmaShell', 'org.kde.PlasmaShell', 'evaluateScript', 's',
+             'print(desktops().length)'], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.startswith('s '):
+            if int(json.loads(result.stdout[2:])) > 0:
+                return
+        if time.monotonic() >= deadline:
+            raise RuntimeError('Plasma did not finish creating its desktop layout')
+        time.sleep(0.1)
 
 
 def make_scheme(colors, base):
@@ -78,6 +98,7 @@ def main():
         subprocess.run(['plasma-apply-colorscheme', 'Omarchy'], env=environment, check=True)
     wallpaper = current / 'background'
     if wallpaper.is_file():
+        wait_for_desktop()
         subprocess.run(['plasma-apply-wallpaperimage', str(wallpaper.resolve())],
                        env=environment, check=True)
 

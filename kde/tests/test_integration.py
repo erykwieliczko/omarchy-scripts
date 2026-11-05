@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 RUNTIME = Path(__file__).parents[1] / 'runtime'
 
@@ -17,6 +18,16 @@ def module(name):
 
 
 class KDEIntegration(unittest.TestCase):
+    def test_wallpaper_waits_for_the_first_desktop_layout(self):
+        theme = module('theme')
+        responses = [subprocess.CompletedProcess([], 0, 's "0"\n'),
+                     subprocess.CompletedProcess([], 0, 's "1"\n')]
+        with patch.object(theme.subprocess, 'run', side_effect=responses) as run:
+            with patch.object(theme.time, 'sleep') as sleep:
+                theme.wait_for_desktop()
+        self.assertEqual(run.call_count, 2)
+        sleep.assert_called_once()
+
     def test_palette_maps_omarchy_colors_into_kde(self):
         base = ''.join('[' + section + ']\n' for section in
                        ('Colors:Window', 'Colors:View', 'Colors:Selection', 'General', 'WM'))

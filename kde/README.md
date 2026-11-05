@@ -33,6 +33,8 @@ At login, **Omarchy (KDE Plasma)** is preselected. The native **Plasma (Wayland)
 - Clears forced GTK/Qt/SDL input modules in KDE, including after Plasma reloads the systemd user environment. Native Wayland input remains active; `XMODIFIERS` retains XWayland support. This prevents the Fcitx Wayland Diagnose popup caused by conflicting toolkit modules. See [Fcitx's KDE setup guidance](https://fcitx-im.org/wiki/Using_Fcitx_5_on_Wayland#KDE_Plasma).
 - Adds a KDE-only `uwsm-app -- COMMAND ...` compatibility launcher for existing Omarchy app helpers. The KDE-specific `omarchy` wrapper handles terminal launch, screen lock and logout; other commands use the existing Omarchy CLI.
 - Imports `~/.local/state/omarchy/current/theme/colors.toml` as the KDE `Omarchy` color scheme and applies the current background. A user path unit watches `theme.generation`. `omarchy-kde-sync-theme` also applies a theme manually.
+  On a fresh profile it waits for Plasma to create its desktop layout before
+  applying the wallpaper; owning the D-Bus name alone is too early.
 - Overrides KDE browser integration inside Steam's CEF profile. The native helper otherwise spins inside muvm; the Steam-specific manifest points to an idle helper. The Steam installer also mounts that idle helper over the native executable inside its VM, covering the first client bootstrap recreating the profile. Ordinary host browsers retain their KDE integration.
 - Once the updated Steam installer is present, removes the temporary AoE2-only **Accept focus** workaround from earlier installer revisions, preserving other window rules and a backup. The Steam installer now supplies a general Wine fix for timestamp-rejected focus requests. KDE and its normal focus policy remain in control.
 
