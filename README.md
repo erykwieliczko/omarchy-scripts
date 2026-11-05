@@ -188,10 +188,28 @@ curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/
 The script asks for sudo and applies all three settings:
 
 - **Option ↔ Command on both sides:** Option becomes Super; Command becomes Alt, with right Command acting as right Alt / AltGr.
+- **Optional Right Option → Ctrl:** choose **Ctrl** in the setup page's Right Option selector, or add `--right-option=ctrl` to either installer command. Left Option stays Super and right Command stays AltGr. Omit the flag or use `--right-option=super` to restore the standard preset.
 - **F1–F12 by default:** press F11 alone to send F11.
 - **Fn ↔ left Ctrl:** the physical Fn key becomes Ctrl, and the physical left Ctrl key becomes Fn. Hold **physical left Ctrl** with the top row for volume, brightness, and media controls.
 
 Changes take effect immediately and survive reboot, including at the login screen. The script checks the actual `hid_apple` parameters and boot tools, with no machine, CPU or Omarchy identity check, and saves `/etc/modprobe.d/apple-keyboard.conf`. On Omarchy's active Limine setup it uses `limine-mkinitcpio` and verifies that every installed kernel's generated UKI contains the configuration. Other boot setups use `mkinitcpio -P`. It is independent of KDE or Hyprland and can be run again.
+
+For example, install only the keyboard preset with Right Option as Ctrl:
+
+```bash
+curl -fsSL https://erykwieliczko.github.io/omarchy-scripts/install.sh | bash -s -- --options=K --right-option=ctrl
+```
+
+The modifier choice is also preserved in the page's share link. It uses a
+standard udev hardware-key mapping scoped to Apple input devices, without a
+remapping daemon or desktop-specific shortcuts. The raw Right Option HID usage
+is mapped to Right Ctrl, before the driver's Option/Command swap. The Super
+preset explicitly restores the original Right Alt usage before that swap.
+The mapping lives in `/etc/udev/hwdb.d/90-omarchy-mac-keyboard.hwdb`; the compiled
+database is included and verified in each Limine UKI alongside the driver
+settings. Failed installation restores the prior hardware mapping, live key
+codes, driver settings and boot images. This works in GNOME, KDE, X11/Wayland,
+and the console/login screen.
 
 Check support and current settings without changing anything:
 
@@ -199,6 +217,18 @@ Check support and current settings without changing anything:
 curl -fsSL https://raw.githubusercontent.com/erykwieliczko/omarchy-scripts/main/setup-mac-keyboard.sh | bash -s -- --check
 ```
 
-Each installation backs up the previous configuration, live driver values, raw initramfs files, and (when active) Limine's UKIs and boot configuration under `/var/lib/omarchy-mac-keyboard/backups/`. Boot artifacts retain their full paths under each backup's `boot-files/`; `boot-files.list` records them. If configuration, rebuilding, verification, or live activation fails, the script attempts to restore them automatically. To undo a successful installation, restore `apple-keyboard.conf` from the chosen backup (or remove `/etc/modprobe.d/apple-keyboard.conf` if that backup has no configuration file), rebuild with `sudo limine-mkinitcpio` on Limine or `sudo mkinitcpio -P` otherwise, and reboot. The `before-*` files record the previous live values.
+Each installation backs up the previous driver/hardware-map configuration, live
+driver values and key codes, raw initramfs files, and (when active) Limine's UKIs
+and boot configuration under `/var/lib/omarchy-mac-keyboard/backups/`. Boot
+artifacts retain their full paths under `boot-files/`; `boot-files.list` records
+them. Failed configuration, rebuilding, verification or live activation triggers
+automatic restoration. The `before-*` files record previous live values.
+
+To undo a successful installation, restore `apple-keyboard.conf` to
+`/etc/modprobe.d/apple-keyboard.conf` and `apple-keyboard.hwdb` to
+`/etc/udev/hwdb.d/90-omarchy-mac-keyboard.hwdb` from the chosen backup. Remove
+the corresponding current file if it did not exist in that backup. Run
+`sudo systemd-hwdb update`, rebuild with `sudo limine-mkinitcpio` on Limine or
+`sudo mkinitcpio -P` otherwise, and reboot.
 
 Validated on both a fresh M1 MacBook Air and a 14-inch M3 Pro running Omarchy / Arch Linux ARM, kernel `7.2.11-13-1-ARCH`, including the generated UKI contents. The previous raw-initramfs-only script left the active UKI unchanged; the Limine frontend fixes that persistence bug. Tests cover driver-based detection, installation, piped sudo, conflicts, failed rebuilds, stale UKIs and restoration of the boot configuration. `--check` verifies the required driver parameters and commands.

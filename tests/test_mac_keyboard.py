@@ -25,6 +25,8 @@ class MacKeyboard(unittest.TestCase):
         self.config = self.root / 'etc/modprobe.d/apple-keyboard.conf'
         self.parameters = self.root / 'sys/module/hid_apple/parameters'
         self.backups = self.root / 'var/lib/omarchy-mac-keyboard/backups'
+        self.hwdb = self.root / 'etc/udev/hwdb.d/90-omarchy-mac-keyboard.hwdb'
+        self.database = self.write('etc/udev/hwdb.bin', 'distribution database')
         self.write('etc/arch-release', '')
         self.write('proc/device-tree/compatible', 'apple,j514\0apple,arm-platform\0')
         self.write('usr/bin/omarchy', '', executable=True)
@@ -40,6 +42,11 @@ class MacKeyboard(unittest.TestCase):
         self.command('mkinitcpio', '\n'.join(
             f'printf rebuilt > {shlex.quote(str(image))}' for image in self.images
         ) + '\nexit "${MOCK_BUILD_STATUS:-0}"')
+        self.command('systemd-hwdb',
+                     f'if [[ -f {shlex.quote(str(self.hwdb))} ]]; then\n'
+                     f'cat {shlex.quote(str(self.hwdb))} > {shlex.quote(str(self.database))}\n'
+                     f'else printf "distribution database" > {shlex.quote(str(self.database))}; fi')
+        self.command('udevadm', 'exit "${MOCK_UDEV_STATUS:-0}"')
 
         # Redirect every system path into the fixture, and bypass only the root
         # check. All real file writes, backups, traps, and rollback logic execute.
@@ -71,6 +78,8 @@ class MacKeyboard(unittest.TestCase):
         self.assertEqual((self.parameters / 'fnmode').read_text(), '1\n')
         self.assertEqual((self.parameters / 'swap_opt_cmd').read_text(), '0\n')
         self.assertEqual((self.parameters / 'swap_fn_leftctrl').read_text(), '0\n')
+        self.assertFalse(self.hwdb.exists())
+        self.assertEqual(self.database.read_text(), 'distribution database')
         for image in self.images:
             self.assertEqual(image.read_text(), f'original-{image.name[10:-4]}')
 
@@ -110,6 +119,41 @@ class MacKeyboard(unittest.TestCase):
         self.assertTrue(any((backup / 'apple-keyboard.conf').read_text() == ORIGINAL
                             for backup in backups))
 
+    def test_right_option_ctrl_can_be_selected_and_reset_to_super(self):
+        for choice, raw_key in (('ctrl', 'rightctrl'), ('super', 'rightalt')):
+            result = self.run_script('--right-option=' + choice)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('KEYBOARD_KEY_700e6=' + raw_key, self.hwdb.read_text())
+            self.assertIn('evdev:input:b*v05ACp*', self.hwdb.read_text())
+            self.assertIn(DESIRED, self.config.read_text())
+
+    def test_ctrl_command_swap_is_disabled_to_keep_right_ctrl_a_ctrl(self):
+        self.write('sys/module/hid_apple/parameters/swap_ctrl_cmd', '1\n')
+        result = self.run_script('--right-option=ctrl')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('swap_ctrl_cmd=0', self.config.read_text())
+        self.assertEqual((self.parameters / 'swap_ctrl_cmd').read_text(), '0\n')
+
+    def test_invalid_right_option_is_rejected_before_any_changes(self):
+        result = self.run_script('--right-option=command')
+        self.assertNotEqual(result.returncode, 0)
+        self.assert_original()
+        self.assertFalse(self.backups.exists())
+
+    def test_failed_live_activation_restores_settings_database_and_boot_files(self):
+        result = self.run_script('--right-option=ctrl', MOCK_UDEV_STATUS='42')
+        self.assertEqual(result.returncode, 42, result.stderr)
+        self.assert_original()
+
+    def test_failed_change_preserves_an_existing_hardware_mapping(self):
+        original = 'evdev:input:b*v05ACp*\n KEYBOARD_KEY_700e6=rightctrl\n'
+        self.write('etc/udev/hwdb.d/90-omarchy-mac-keyboard.hwdb', original)
+        self.database.write_text(original)
+        result = self.run_script('--right-option=super', MOCK_BUILD_STATUS='42')
+        self.assertEqual(result.returncode, 42, result.stderr)
+        self.assertEqual(self.hwdb.read_text(), original)
+        self.assertEqual(self.database.read_text(), original)
+
     def test_failed_rebuild_restores_config_runtime_and_both_images(self):
         result = self.run_script(MOCK_BUILD_STATUS='42')
         self.assertEqual(result.returncode, 42, result.stderr)
@@ -137,12 +181,13 @@ assert sys.argv[1:4] == ['--', 'bash', '-c'], sys.argv
 body = sys.argv[4].replace('(( 1 != 0 ))', '(( 0 != 0 ))')
 os.execvp('bash', ['bash', '-c', body, *sys.argv[5:]])
 ''', executable=True)
-        result = subprocess.run(['bash', '-s', '--'], input=source,
+        result = subprocess.run(['bash', '-s', '--', '--right-option=ctrl'], input=source,
                                 env=self.environment, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Applying keyboard settings (sudo)', result.stdout)
         self.assertIn('No reboot needed', result.stdout)
         self.assertIn(DESIRED, self.config.read_text())
+        self.assertIn('KEYBOARD_KEY_700e6=rightctrl', self.hwdb.read_text())
 
     def add_limine(self):
         self.write('var/lib/omarchy/limine.enabled', '')
@@ -173,9 +218,11 @@ os.execvp('bash', ['bash', '-c', body, *sys.argv[5:]])
             'exit "${MOCK_BUILD_STATUS:-0}"',
         ]))
         self.command('lsinitcpio',
-                     'mkdir -p etc/modprobe.d\n'
+                     'mkdir -p etc/modprobe.d etc/udev\n'
                      'if [[ ${MOCK_BAD_UKI:-0} != 1 ]]; then\n'
-                     f'cp {shlex.quote(str(self.config))} etc/modprobe.d/apple-keyboard.conf\nfi')
+                     f'cp {shlex.quote(str(self.config))} etc/modprobe.d/apple-keyboard.conf\nfi\n'
+                     'if [[ ${MOCK_BAD_HWDB_UKI:-0} != 1 ]]; then\n'
+                     f'cp {shlex.quote(str(self.database))} etc/udev/hwdb.bin\nfi')
 
     def test_limine_rebuilds_and_verifies_actual_boot_ukis(self):
         self.add_limine()
@@ -200,6 +247,14 @@ os.execvp('bash', ['bash', '-c', body, *sys.argv[5:]])
         self.assertIn('missing or stale', result.stderr)
         self.assert_original()
         self.assertEqual(self.limine_config.read_text(), 'original boot configuration')
+        self.assertTrue(all(p.read_text() == 'original UKI' for p in self.ukis))
+
+    def test_uki_without_current_hardware_mapping_is_rejected_and_restored(self):
+        self.add_limine()
+        result = self.run_script('--right-option=ctrl', MOCK_BAD_HWDB_UKI='1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('hardware database missing or stale', result.stderr)
+        self.assert_original()
         self.assertTrue(all(p.read_text() == 'original UKI' for p in self.ukis))
 
 

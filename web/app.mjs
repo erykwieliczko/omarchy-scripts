@@ -22,9 +22,15 @@ export function normalizeOptions(value) {
   return components.map(component => component.code).filter(code => upper.includes(code)).join('');
 }
 
-export function installCommand(options) {
+export function normalizeRightOption(value) {
+  return value === 'super' || value === 'ctrl' ? value : null;
+}
+
+export function installCommand(options, rightOption = 'super') {
   const selected = normalizeOptions(options);
-  return selected ? `curl -fsSL ${installerURL} | bash -s -- --options=${selected}` : '';
+  if (!selected || normalizeRightOption(rightOption) === null) return '';
+  const keyboard = selected.includes('K') && rightOption === 'ctrl' ? ' --right-option=ctrl' : '';
+  return `curl -fsSL ${installerURL} | bash -s -- --options=${selected}${keyboard}`;
 }
 
 if (typeof document !== 'undefined') {
@@ -37,10 +43,21 @@ if (typeof document !== 'undefined') {
   const selectedList = document.getElementById('selected-components');
   const selectionCode = document.getElementById('selection-code');
   const selectionCount = document.getElementById('selection-count');
+  const rightOption = document.getElementById('right-option');
+  const keyboardSettings = document.getElementById('keyboard-settings');
   let labelTimer;
 
   const selectedOptions = () => normalizeOptions(inputs.filter(input => input.checked).map(input => input.value).join('')) ?? '';
   const nameOf = code => components.find(component => component.code === code)?.name ?? code;
+
+  function setURLSelection(url, options) {
+    url.searchParams.set('options', options);
+    if (options.includes('K') && rightOption.value === 'ctrl') {
+      url.searchParams.set('right-option', 'ctrl');
+    } else {
+      url.searchParams.delete('right-option');
+    }
+  }
 
   function say(message, tone = 'info') {
     feedback.textContent = message;
@@ -55,7 +72,9 @@ if (typeof document !== 'undefined') {
   function render(updateURL = false) {
     const options = selectedOptions();
     const selected = components.filter(component => options.includes(component.code));
-    const text = installCommand(options);
+    const text = installCommand(options, rightOption.value);
+    rightOption.disabled = !options.includes('K');
+    keyboardSettings.hidden = !options.includes('K');
 
     command.textContent = text || 'Select at least one option to generate a command.';
     command.classList.toggle('is-empty', !text);
@@ -66,7 +85,8 @@ if (typeof document !== 'undefined') {
 
     selectedList.replaceChildren(...selected.map(component => {
       const item = document.createElement('li');
-      item.textContent = component.name;
+      item.textContent = component.code === 'K' && rightOption.value === 'ctrl'
+        ? `${component.name} (Right Option → Ctrl)` : component.name;
       return item;
     }));
     if (!selected.length) {
@@ -79,17 +99,21 @@ if (typeof document !== 'undefined') {
     say('');
     if (updateURL) {
       const url = new URL(window.location.href);
-      url.searchParams.set('options', options);
+      setURLSelection(url, options);
       history.replaceState(null, '', url);
     }
   }
 
   function restoreSelection() {
-    const query = new URL(window.location.href).searchParams.get('options');
+    const parameters = new URL(window.location.href).searchParams;
+    const query = parameters.get('options');
     const options = query === null ? DEFAULT_OPTIONS : normalizeOptions(query);
-    inputs.forEach(input => { input.checked = options?.includes(input.value) ?? false; });
+    const modifier = normalizeRightOption(parameters.get('right-option') ?? 'super');
+    rightOption.value = modifier ?? 'super';
+    inputs.forEach(input => { input.checked = modifier !== null && (options?.includes(input.value) ?? false); });
     render();
     if (options === null) say('This link contains an unrecognized option, so nothing was selected. Choose your options above.', 'error');
+    else if (modifier === null) say('This link has an unrecognized Right Option setting. Choose your options above.', 'error');
   }
 
   async function copyText(text) {
@@ -116,9 +140,10 @@ if (typeof document !== 'undefined') {
   }));
 
   window.addEventListener('popstate', restoreSelection);
+  rightOption.addEventListener('change', () => render(true));
 
   copyButton.addEventListener('click', async () => {
-    const text = installCommand(selectedOptions());
+    const text = installCommand(selectedOptions(), rightOption.value);
     if (!text) return;
     if (await copyText(text)) {
       copyLabel.textContent = 'Copied';
@@ -141,7 +166,7 @@ if (typeof document !== 'undefined') {
     const options = selectedOptions();
     if (!options) return;
     const url = new URL(window.location.href);
-    url.searchParams.set('options', options);
+    setURLSelection(url, options);
     url.hash = '';
     if (await copyText(url.href)) {
       say('Link copied. It opens this page with the same selection.', 'success');

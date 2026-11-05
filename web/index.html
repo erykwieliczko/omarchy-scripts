@@ -54,13 +54,22 @@
           <legend>Extras</legend>
           <p class="hint" id="extras-hint">Any combination, with or without a desktop.</p>
           <div class="choices">
-            <label class="choice">
-              <input type="checkbox" name="component" value="K" checked aria-labelledby="name-K" aria-describedby="desc-K">
-              <span class="choice-body">
-                <span class="choice-head"><span class="choice-name" id="name-K">Apple keyboard</span><kbd class="choice-key" aria-hidden="true">K</kbd></span>
-                <span class="choice-desc" id="desc-K">Swaps Option/Command and Fn/Ctrl. F1–F12 work directly, without Fn.</span>
-              </span>
-            </label>
+            <div class="keyboard-choice">
+              <label class="choice">
+                <input type="checkbox" name="component" value="K" checked aria-labelledby="name-K" aria-describedby="desc-K">
+                <span class="choice-body">
+                  <span class="choice-head"><span class="choice-name" id="name-K">Apple keyboard</span><kbd class="choice-key" aria-hidden="true">K</kbd></span>
+                  <span class="choice-desc" id="desc-K">PC-style modifiers and Fn/Ctrl swap. F1–F12 work directly, without Fn.</span>
+                </span>
+              </label>
+              <div class="keyboard-settings" id="keyboard-settings">
+                <label for="right-option">Right Option</label>
+                <select id="right-option" name="right-option">
+                  <option value="super">Super (default)</option>
+                  <option value="ctrl">Ctrl</option>
+                </select>
+              </div>
+            </div>
             <label class="choice">
               <input type="checkbox" name="component" value="S" aria-labelledby="name-S" aria-describedby="desc-S">
               <span class="choice-body">

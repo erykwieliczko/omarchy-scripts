@@ -111,6 +111,25 @@ CHILD
         self.assertFalse(self.downloads.exists())
         self.assertFalse(self.executions.exists())
 
+    def test_right_option_preference_is_forwarded_only_to_keyboard(self):
+        result = self.launch('--options=PKS', '--right-option=ctrl', '--user', 'player', '--check')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.read_lines(self.executions), [
+            {'name': SCRIPTS['P'], 'args': ['--user', 'player', '--check']},
+            {'name': SCRIPTS['K'], 'args': ['--right-option=ctrl', '--check']},
+            {'name': SCRIPTS['S'], 'args': ['--user', 'player', '--check']},
+        ])
+
+    def test_right_option_requires_keyboard_and_a_supported_value(self):
+        for args in (('--options=S', '--right-option=ctrl'),
+                     ('--options=K', '--right-option=command'),
+                     ('--options=K', '--right-option=')):
+            with self.subTest(args=args):
+                result = self.launch(*args)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(self.downloads.exists())
+                self.assertFalse(self.executions.exists())
+
     def test_download_failure_prevents_any_installation(self):
         result = self.launch('--options=PKS', FAIL_DOWNLOAD=SCRIPTS['K'])
         self.assertEqual(result.returncode, 22, result.stderr)
